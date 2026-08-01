@@ -1,0 +1,29 @@
+# Build folders
+build/
+Build/
+cmake-build-*/
+
+# Visual Studio files
+.vs/
+*.sln
+*.vcxproj*
+*.vcxproj.filters
+
+# Compiled binaries
+*.exe
+*.dll
+*.lib
+*.pdb
+*.ilk
+*.obj
+*.o
+
+# JUCE generated files
+JuceLibraryCode/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
