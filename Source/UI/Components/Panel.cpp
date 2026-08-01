@@ -3,11 +3,13 @@
  *
  * (c) 2026 Ghost Signal
  *
- * Description: Industrial hardware panel — recessed dark body, brushed-metal
- *              scan-line texture, left accent stripe, larger section title.
+ * Description: Premium industrial panel — recessed dark body with brushed-metal
+ *              scan-line texture, left accent stripe, inner shadow, and
+ *              proportional title bar.
  */
 
 #include "Panel.h"
+#include "../LookAndFeel.h"
 
 Panel::Panel (const juce::String& panelTitle)
 {
@@ -15,9 +17,9 @@ Panel::Panel (const juce::String& panelTitle)
 
     title.setText (panelTitle, juce::dontSendNotification);
     title.setJustificationType (juce::Justification::centredLeft);
-    title.setColour (juce::Label::textColourId, juce::Colour (0xFFD8D8D8));
+    title.setColour (juce::Label::textColourId, GhostSignalLookAndFeel::textPrimary);
     title.setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
-    title.setFont (juce::Font (12.0f, juce::Font::bold));
+    title.setFont (GhostSignalLookAndFeel::getSectionTitleFont (28));
 
     addAndMakeVisible (title);
 }
@@ -32,24 +34,30 @@ void Panel::paint (juce::Graphics& g)
     const auto bounds    = getLocalBounds().toFloat();
     const float w        = bounds.getWidth();
     const float h        = bounds.getHeight();
-    const float corner   = 5.0f;
+    const float corner   = 6.0f;
     const float titleH   = static_cast<float> (getTitleAreaHeight());
-    const float accentW  = 2.0f;  // left stripe width
+    const float accentW  = 3.0f;  // left stripe width
+
+    // ── Outer shadow (drop shadow for depth) ────────────────────────────────────
+    {
+        g.setColour (GhostSignalLookAndFeel::panelShadow);
+        g.fillRoundedRectangle (bounds.getX() + 1.0f, bounds.getY() + 2.0f,
+                                bounds.getWidth(), bounds.getHeight(), corner);
+    }
 
     // ── Body background ───────────────────────────────────────────────────────
     {
         juce::ColourGradient bg;
         bg.point1 = { 0.0f, 0.0f };
         bg.point2 = { 0.0f, h };
-        bg.addColour (0.00f, juce::Colour (0xFF1E1E1E));
-        bg.addColour (0.50f, juce::Colour (0xFF181818));
-        bg.addColour (1.00f, juce::Colour (0xFF141414));
+        bg.addColour (0.00f, GhostSignalLookAndFeel::panel);
+        bg.addColour (0.50f, GhostSignalLookAndFeel::panel.darker (0.03f));
+        bg.addColour (1.00f, GhostSignalLookAndFeel::panel.darker (0.06f));
         g.setGradientFill (bg);
         g.fillRoundedRectangle (bounds, corner);
     }
 
-    // ── Brushed-metal scan-line texture ───────────────────────────────────────
-    // Very subtle horizontal lines every 3px — simulates brushed aluminium grain
+    // ── Brushed-metal scan-line texture ────────────────────────────────────────
     {
         g.saveState();
         g.reduceClipRegion (bounds.reduced (0.5f).toNearestInt());
@@ -60,7 +68,7 @@ void Panel::paint (juce::Graphics& g)
         g.restoreState();
     }
 
-    // ── Title bar strip ───────────────────────────────────────────────────────
+    // ── Title bar strip ────────────────────────────────────────────────────────
     {
         juce::Path titlePath;
         titlePath.addRoundedRectangle (0.0f, 0.0f, w, titleH,
@@ -69,49 +77,46 @@ void Panel::paint (juce::Graphics& g)
         juce::ColourGradient titleBg;
         titleBg.point1 = { 0.0f, 0.0f };
         titleBg.point2 = { 0.0f, titleH };
-        titleBg.addColour (0.0f, juce::Colour (0xFF2A2A2A));
-        titleBg.addColour (1.0f, juce::Colour (0xFF1E1E1E));
+        titleBg.addColour (0.0f, GhostSignalLookAndFeel::accent.darker (0.3f));
+        titleBg.addColour (1.0f, GhostSignalLookAndFeel::panel.darker (0.1f));
         g.setGradientFill (titleBg);
         g.fillPath (titlePath);
     }
 
     // Title bar bottom divider
-    g.setColour (juce::Colour (0xFF111111));
+    g.setColour (juce::Colour (0xFF080808));
     g.drawHorizontalLine (static_cast<int> (titleH),
                           accentW, w);
 
     // ── Left accent stripe ────────────────────────────────────────────────────
-    // White at 25% alpha — visual anchor, like a chassis rail
     {
         juce::Path stripe;
         stripe.addRoundedRectangle (0.0f, 0.0f, accentW, h,
                                     corner, corner,
                                     true, false, true, false);
-        g.setColour (juce::Colour (0x40FFFFFF));
+        g.setColour (GhostSignalLookAndFeel::accent.withAlpha (0.3f));
         g.fillPath (stripe);
     }
 
     // ── Top edge highlight ────────────────────────────────────────────────────
-    g.setColour (juce::Colour (0x30FFFFFF));
+    g.setColour (juce::Colour (0x20FFFFFF));
     g.drawHorizontalLine (0,
                           bounds.getX() + corner,
                           bounds.getRight() - corner);
 
-    // ── Outer border ─────────────────────────────────────────────────────────
-    // Single pixel, dark — creates slight inset / shadow impression
-    g.setColour (juce::Colour (0xFF080808));
+    // ── Outer border ──────────────────────────────────────────────────────────
+    g.setColour (GhostSignalLookAndFeel::panelBorder);
     g.drawRoundedRectangle (bounds.reduced (0.5f), corner, 1.0f);
 
-    // ── Inner border ─────────────────────────────────────────────────────────
-    // Very subtle lighter line just inside the outer border
-    g.setColour (juce::Colour (0x18FFFFFF));
+    // ── Inner border ────────────────────────────────────────────────────────
+    g.setColour (juce::Colour (0x10FFFFFF));
     g.drawRoundedRectangle (bounds.reduced (1.5f), corner - 1.0f, 0.8f);
 }
 
 void Panel::resized()
 {
     const int titleH  = getTitleAreaHeight();
-    const int titlePadLeft = 8;   // left padding: leaves room for accent stripe
+    const int titlePadLeft = 10;   // left padding: leaves room for accent stripe
 
     title.setBounds (titlePadLeft,
                      0,
@@ -121,6 +126,6 @@ void Panel::resized()
 
 int Panel::getTitleAreaHeight() const
 {
-    // Proportional: slightly taller for larger panels, min 22px
-    return juce::jlimit (22, 28, (int) (getHeight() * 0.13f));
+    // Proportional: slightly taller for larger panels, min 24px
+    return juce::jlimit (24, 32, (int) (getHeight() * 0.13f));
 }

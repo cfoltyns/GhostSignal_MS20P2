@@ -6,9 +6,11 @@
  * Description: Visual LFO waveform display with shape adjustment.
  *              Supports five classic waveforms: Sine, Triangle, Square,
  *              Sawtooth (shape-morphable), and Random.
+ *              Uses the GhostSignalLookAndFeel color palette.
  */
 
 #include "LfoDisplay.h"
+#include "../LookAndFeel.h"
 
 LfoDisplay::LfoDisplay()
 {
@@ -20,11 +22,22 @@ void LfoDisplay::paint (juce::Graphics& g)
     const float w = b.getWidth();
     const float h = b.getHeight();
 
-    // Background - dark screen
-    g.setColour (juce::Colour (0xFF0A0A0A));
-    g.fillRoundedRectangle (b, 3.0f);
-    g.setColour (juce::Colour (0xFF222222));
-    g.drawRoundedRectangle (b.reduced (0.5f), 3.0f, 1.0f);
+    // Background — dark screen with subtle gradient
+    juce::ColourGradient bgGrad;
+    bgGrad.point1 = { 0.0f, 0.0f };
+    bgGrad.point2 = { 0.0f, h };
+    bgGrad.addColour (0.0f, GhostSignalLookAndFeel::panel.darker (0.1f));
+    bgGrad.addColour (1.0f, GhostSignalLookAndFeel::panel.darker (0.2f));
+    g.setGradientFill (bgGrad);
+    g.fillRoundedRectangle (b, 4.0f);
+
+    // Border
+    g.setColour (GhostSignalLookAndFeel::panelBorder);
+    g.drawRoundedRectangle (b.reduced (0.5f), 4.0f, 1.0f);
+
+    // Inner shadow for depth
+    g.setColour (GhostSignalLookAndFeel::panelShadow);
+    g.drawRoundedRectangle (b.reduced (1.0f), 3.5f, 0.5f);
 
     // Draw waveform
     const float margin = 4.0f;
@@ -85,13 +98,17 @@ void LfoDisplay::paint (juce::Graphics& g)
             wavePath.lineTo (x, y);
     }
 
-    // Draw the waveform path
-    g.setColour (juce::Colour (0xFFDB4437));
+    // Draw the waveform path with accent color and subtle glow
+    g.setColour (GhostSignalLookAndFeel::accent);
     g.strokePath (wavePath, juce::PathStrokeType (1.5f));
 
+    // Subtle glow behind waveform
+    g.setColour (GhostSignalLookAndFeel::accent.withAlpha (0.15f));
+    g.strokePath (wavePath, juce::PathStrokeType (3.0f));
+
     // Draw horizontal center line
-    g.setColour (juce::Colour (0x40FFFFFF));
-    g.drawHorizontalLine (static_cast<int> (midY), b.getX(), b.getRight());
+    g.setColour (juce::Colour (0x30FFFFFF));
+    g.drawHorizontalLine (static_cast<int> (midY), b.getX() + margin, b.getRight() - margin);
 }
 
 void LfoDisplay::resized()

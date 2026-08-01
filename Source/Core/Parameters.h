@@ -74,28 +74,24 @@ public:
     inline static const juce::String paramLFO1Waveform  { "lfo1_waveform" };
     inline static const juce::String paramLFO1Rate      { "lfo1_rate" };
     inline static const juce::String paramLFO1Depth     { "lfo1_depth" };
-    inline static const juce::String paramLFO1Shape     { "lfo1_shape" };
     inline static const juce::String paramLFO1Dest      { "lfo1_dest" };
 
     // ── LFO2 ────────────────────────────────────────────────────────────────────
     inline static const juce::String paramLFO2Waveform  { "lfo2_waveform" };
     inline static const juce::String paramLFO2Rate      { "lfo2_rate" };
     inline static const juce::String paramLFO2Depth     { "lfo2_depth" };
-    inline static const juce::String paramLFO2Shape     { "lfo2_shape" };
     inline static const juce::String paramLFO2Dest      { "lfo2_dest" };
 
     // ── LFO3 ────────────────────────────────────────────────────────────────────
     inline static const juce::String paramLFO3Waveform  { "lfo3_waveform" };
     inline static const juce::String paramLFO3Rate      { "lfo3_rate" };
     inline static const juce::String paramLFO3Depth     { "lfo3_depth" };
-    inline static const juce::String paramLFO3Shape     { "lfo3_shape" };
     inline static const juce::String paramLFO3Dest      { "lfo3_dest" };
 
     // ── LFO4 ────────────────────────────────────────────────────────────────────
     inline static const juce::String paramLFO4Waveform  { "lfo4_waveform" };
     inline static const juce::String paramLFO4Rate      { "lfo4_rate" };
     inline static const juce::String paramLFO4Depth     { "lfo4_depth" };
-    inline static const juce::String paramLFO4Shape     { "lfo4_shape" };
     inline static const juce::String paramLFO4Dest      { "lfo4_dest" };
 
     // ── EG1 (Delay / Attack / Release — pitch mod source) ─────────────────────
@@ -145,6 +141,10 @@ public:
     static const juce::StringArray lfoWaveformChoices;
     // LFO destination options (routing targets)
     static const juce::StringArray lfoDestinationChoices;
+
+    // Noise color options
+    static const juce::StringArray noiseTypeChoices;
+
 
     // List of parameter IDs that are "knobs" eligible for the Randomize feature.
     // (Excludes discrete choices like waveform/scale/voice mode, and master volume.)

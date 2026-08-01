@@ -15,6 +15,42 @@ Framework: JUCE + CMake + C++20
 - Git
 - JUCE 8 (vendored locally in ThirdParty/JUCE)
 
+## Quick Start (macOS — Audio Unit)
+
+On macOS the **Audio Unit (AU)** wrapper needs no external SDK — it links
+against the system AudioUnit/AVFAudio frameworks that ship with the macOS SDK
+(available via the Xcode Command Line Tools). Build just the AU target to
+avoid the VST3 SDK requirement entirely:
+
+```sh
+cd "/Users/connor/Desktop/Synth development/GhostSignal_MS20P2"
+
+# Configure (Release; uses the vendored JUCE 8)
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+# Build only the AU target
+cmake --build build --target GhostSignalMS20P_AU --config Release
+
+# Install into the user AU component directory
+cp -R build/GhostSignalMS20P_artefacts/Release/AU/GhostSignalMS20P.component \
+   ~/Library/Audio/Plug-Ins/Components/
+
+# Validate the built AU
+auval -v aumu MS20 Gsgn
+```
+
+The AU is installed at `~/Library/Audio/Plug-Ins/Components/GhostSignalMS20P.component`
+and is ready to load in Logic Pro, GarageBand, and other AU hosts.
+
+> **Note:** The component is ad-hoc signed by JUCE's CMake, so it builds and
+> passes `auval` out of the box. Loading it in a DAW that enforces
+> Gatekeeper/notarisation (e.g. for App Store/distribution) requires signing
+> with an Apple Developer ID.
+>
+> **Note (VST3 on macOS):** Building the `VST3` target additionally requires
+> Steinberg's VST3 SDK. Build only the `GhostSignalMS20P_AU` target (as shown
+> above) to sidestep that dependency.
+
 ## Quick Start (Windows)
 
 ```powershell
@@ -56,7 +92,6 @@ The synth features **4 independent LFOs**, each with:
   Random) with real-time visual display
 - **Rate** knob (0.01–20 Hz, logarithmic)
 - **Depth** knob (0–100%)
-- **Shape** knob for MS-20-style waveform morphing
 - **Destination** selector routing the LFO to one of 13 modulation targets:
 
   | # | Destination    | Effect                                  |
@@ -93,23 +128,38 @@ the points on the visual display updates the corresponding parameter values.
 The display uses a square-root time scale so that both short and long times
 are easily editable.
 
+### Premium Industrial UI
+
+The interface features a complete redesign with a clean, modern, premium aesthetic:
+
+- **Color palette**: Deep charcoal background (#0A0A0C) with dark slate panels (#141418),
+  subtle borders, and a single warm accent color (#FF6B35)
+- **Custom knobs**: Brushed-metal texture with chrome rims, machined aluminum center caps,
+  dual-arc value indicators, and subtle glow effects
+- **Modular layout**: Signal-flow-based sections (Oscillators → Mixer → Filter → Envelopes →
+  LFOs → Effects → Master) with generous spacing and consistent grid alignment
+- **Visual hierarchy**: Important controls (Cutoff, Resonance, Master Volume) are larger;
+  secondary controls (fine tune, modulation amounts) are smaller
+- **Typography**: Clean sans-serif with clear section labels and proportional sizing
+- **Depth & texture**: Subtle inner shadows, beveled edges, and brushed-metal scan-line
+  textures without looking dated
+
 ### Ghost Signal Logo
 
-The header features a custom **LogoComponent** rendering the "GHOST SIGNAL MS20P"
-identity with a circuit-trace visual effect, LED accents, gradient styling,
-and a dimmed "GS" monogram — replacing the previous plain text title label.
+The header features a custom **LogoComponent** rendering the "ghost signal MS20P"
+identity with a premium circular LED-style accent badge featuring a lightning bolt icon,
+gradient styling, and subtle glow effects.
 
 ### Current Controls
 
-- **VCO1/VCO2**: Waveform, Pulse Width, Octave, Gain, Tune
-- **SUB**: Octave, Gain
+- **VCO1/VCO2**: Waveform, Pulse Width, Octave, Tune
+- **SUB**: Octave
 - **NOISE**: Type, Gain
 - **MIXER**: VCO1/VCO2/Sub Levels, Drive
 - **FILTER**: HPF Cutoff/Res, LPF Cutoff/Res/Drive
-- **SAT**: Drive
 - **VCA ENV**: Attack, Decay, Sustain, Release + visual display
 - **VCF ENV**: Attack, Decay, Sustain, Release + visual display
-- **LFO1-4**: Waveform, Rate, Depth, Shape + visual display + Destination routing
+- **LFO1-4**: Waveform, Rate, Depth + visual display + Destination routing
 - **AMP**: Gain, Pan
 - **GLIDE**: Time, Voice Mode (Poly/Mono/Unison)
 - **TAPE DELAY**: Enable, Time Mode, Time, Feedback, Mix, Age, Saturation, Wow, Flutter

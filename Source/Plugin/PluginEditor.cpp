@@ -3,8 +3,15 @@
  *
  * (c) 2026 Ghost Signal
  *
- * Description: Fully responsive plugin editor.
- *              All layout driven by proportional fractions of getWidth()/getHeight().
+ * Description: Premium industrial plugin editor — fully responsive layout
+ *              using proportional math. All setBounds() calls driven by
+ *              getWidth()/getHeight() ratios.
+ *
+ * Signal-flow layout:
+ *   Header: Logo | Randomize | Master Volume
+ *   Row 1:  VCO1 | VCO2 | Sub/Noise | Mixer | Filter
+ *   Row 2:  VCA Env | VCF Env
+ *   Row 3:  Glide/Voice | LFO1 | LFO2 | LFO3 | LFO4 | Tape Delay | Amp
  */
 
 #include "PluginEditor.h"
@@ -34,9 +41,9 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (masterVolLabel);
     masterVolLabel.setText ("MASTER", juce::dontSendNotification);
     masterVolLabel.setJustificationType (juce::Justification::centred);
-    masterVolLabel.setColour (juce::Label::textColourId, juce::Colour (0xFF888888));
+    masterVolLabel.setColour (juce::Label::textColourId, GhostSignalLookAndFeel::textSecondary);
     masterVolLabel.setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
-    masterVolLabel.setFont (juce::Font (10.0f, juce::Font::bold));
+    masterVolLabel.setFont (GhostSignalLookAndFeel::getParamLabelFont (20));
 
     // ── OSC1 ─────────────────────────────────────────────────────────────────
     addAndMakeVisible (osc1Panel);
@@ -63,12 +70,7 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     // ── SUB / NOISE ───────────────────────────────────────────────────────────
     addAndMakeVisible (subPanel);
     addAndMakeVisible (subOctave);
-    {
-        const float noisePositions[] = { 0.0f, 1.0f, 2.0f, 3.0f, 4.0f };
-        noiseType.setSnapToValues(noisePositions, 5);
-        noiseType.setTextValues(juce::StringArray{"Brown", "Pink", "White", "Blue", "Violet"}, noisePositions, 5);
-        noiseType.setAutoCenterText (true);
-    }
+    noiseType.addItemList (Parameters::noiseTypeChoices, 1);
     addAndMakeVisible (noisePanel);
     addAndMakeVisible (noiseType);
     addAndMakeVisible (noiseGain);
@@ -80,7 +82,7 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (mixerSubLevel);
     addAndMakeVisible (mixerDrive);
 
-    // ── FILTER ───────────────────────────────────────────────────────────────
+    // ── FILTER ────────────────────────────────────────────────────────────────
     addAndMakeVisible (filterPanel);
     addAndMakeVisible (hpfCutoff);
     hpfCutoff.setAutoCenterText (true);
@@ -92,7 +94,6 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     lpfRes.setAutoCenterText (true);
     addAndMakeVisible (lpfDrive);
     lpfDrive.setAutoCenterText (true);
-
 
     // ── VCA ENV (with EnvDisplay) ─────────────────────────────────────────────
     addAndMakeVisible (ampPanel);
@@ -132,7 +133,6 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (lfo1Waveform);
     addAndMakeVisible (lfo1Rate);
     addAndMakeVisible (lfo1Depth);
-    addAndMakeVisible (lfo1Shape);
     addAndMakeVisible (lfo1Dest);
     addAndMakeVisible (lfo1Display);
 
@@ -143,7 +143,6 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (lfo2Waveform);
     addAndMakeVisible (lfo2Rate);
     addAndMakeVisible (lfo2Depth);
-    addAndMakeVisible (lfo2Shape);
     addAndMakeVisible (lfo2Dest);
     addAndMakeVisible (lfo2Display);
 
@@ -154,7 +153,6 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (lfo3Waveform);
     addAndMakeVisible (lfo3Rate);
     addAndMakeVisible (lfo3Depth);
-    addAndMakeVisible (lfo3Shape);
     addAndMakeVisible (lfo3Dest);
     addAndMakeVisible (lfo3Display);
 
@@ -165,7 +163,6 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (lfo4Waveform);
     addAndMakeVisible (lfo4Rate);
     addAndMakeVisible (lfo4Depth);
-    addAndMakeVisible (lfo4Shape);
     addAndMakeVisible (lfo4Dest);
     addAndMakeVisible (lfo4Display);
 
@@ -191,8 +188,8 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (tapeDelayOnOff);
     tapeDelayOnOff.setClickingTogglesState (true);
     tapeDelayOnOff.setButtonText ("");
-    tapeDelayOnOff.setColour (juce::TextButton::buttonColourId, juce::Colour (0xFF333333));
-    tapeDelayOnOff.setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xFFDB4437));
+    tapeDelayOnOff.setColour (juce::TextButton::buttonColourId, GhostSignalLookAndFeel::knobBody);
+    tapeDelayOnOff.setColour (juce::TextButton::buttonOnColourId, GhostSignalLookAndFeel::accent);
     tapeDelayOnOff.setColour (juce::TextButton::textColourOffId, juce::Colours::transparentBlack);
     tapeDelayOnOff.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
 
@@ -226,7 +223,7 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     osc2OctaveAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramOsc2Octave,   osc2Octave.getSlider());
     osc2TuneAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramOsc2Tune,     osc2Tune.getSlider());
     subOctaveAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramSubOctave,    subOctave.getSlider());
-    noiseTypeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramNoiseType,    noiseType.getSlider());
+    noiseTypeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramNoiseType,    noiseType);
     noiseGainAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramNoiseGain,    noiseGain.getSlider());
     mixerVco1LevelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramMixerVco1Level, mixerVco1Level.getSlider());
     mixerVco2LevelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramMixerVco2Level, mixerVco2Level.getSlider());
@@ -250,28 +247,24 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     lfo1WaveAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramLFO1Waveform, lfo1Waveform);
     lfo1RateAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramLFO1Rate,  lfo1Rate.getSlider());
     lfo1DepthAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramLFO1Depth, lfo1Depth.getSlider());
-    lfo1ShapeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramLFO1Shape, lfo1Shape.getSlider());
     lfo1DestAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramLFO1Dest,  lfo1Dest);
 
     // LFO2 attachments
     lfo2WaveAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramLFO2Waveform, lfo2Waveform);
     lfo2RateAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramLFO2Rate,  lfo2Rate.getSlider());
     lfo2DepthAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramLFO2Depth, lfo2Depth.getSlider());
-    lfo2ShapeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramLFO2Shape, lfo2Shape.getSlider());
     lfo2DestAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramLFO2Dest,  lfo2Dest);
 
     // LFO3 attachments
     lfo3WaveAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramLFO3Waveform, lfo3Waveform);
     lfo3RateAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramLFO3Rate,  lfo3Rate.getSlider());
     lfo3DepthAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramLFO3Depth, lfo3Depth.getSlider());
-    lfo3ShapeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramLFO3Shape, lfo3Shape.getSlider());
     lfo3DestAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramLFO3Dest,  lfo3Dest);
 
     // LFO4 attachments
     lfo4WaveAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramLFO4Waveform, lfo4Waveform);
     lfo4RateAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramLFO4Rate,  lfo4Rate.getSlider());
     lfo4DepthAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramLFO4Depth, lfo4Depth.getSlider());
-    lfo4ShapeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramLFO4Shape, lfo4Shape.getSlider());
     lfo4DestAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramLFO4Dest,  lfo4Dest);
 
     ampGainAttachment     = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramAmpGain,      ampGain.getSlider());
@@ -354,16 +347,12 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     setKnobSensitivity (ampRelease.getSlider());
     setKnobSensitivity (lfo1Rate.getSlider());
     setKnobSensitivity (lfo1Depth.getSlider());
-    setKnobSensitivity (lfo1Shape.getSlider());
     setKnobSensitivity (lfo2Rate.getSlider());
     setKnobSensitivity (lfo2Depth.getSlider());
-    setKnobSensitivity (lfo2Shape.getSlider());
     setKnobSensitivity (lfo3Rate.getSlider());
     setKnobSensitivity (lfo3Depth.getSlider());
-    setKnobSensitivity (lfo3Shape.getSlider());
     setKnobSensitivity (lfo4Rate.getSlider());
     setKnobSensitivity (lfo4Depth.getSlider());
-    setKnobSensitivity (lfo4Shape.getSlider());
     setKnobSensitivity (ampGain.getSlider());
     setKnobSensitivity (pan.getSlider());
     setKnobSensitivity (glideTime.getSlider());
@@ -394,32 +383,37 @@ void PluginEditor::paint (juce::Graphics& g)
     const float w = bounds.getWidth();
     const float h = bounds.getHeight();
 
+    // Deep charcoal background with subtle vertical gradient
     {
         juce::ColourGradient bg;
         bg.point1 = { 0.0f, 0.0f };
         bg.point2 = { 0.0f, h };
-        bg.addColour (0.0f,  juce::Colour (0xFF101010));
-        bg.addColour (0.45f, juce::Colour (0xFF0C0C0C));
-        bg.addColour (1.0f,  juce::Colour (0xFF080808));
+        bg.addColour (0.0f,  GhostSignalLookAndFeel::bg);
+        bg.addColour (0.45f, GhostSignalLookAndFeel::bg.darker (0.03f));
+        bg.addColour (1.0f,  GhostSignalLookAndFeel::bg.darker (0.06f));
         g.setGradientFill (bg);
         g.fillRect (bounds);
     }
 
+    // Subtle brushed-metal scan-line texture across entire background
     {
-        g.setColour (juce::Colour (0x05FFFFFF));
+        g.setColour (juce::Colour (0x04FFFFFF));
         for (float lineY = 0.0f; lineY < h; lineY += 3.0f)
             g.drawHorizontalLine (static_cast<int> (lineY), 0.0f, w);
     }
 
+    // Vertical dividers between major sections (subtle)
     {
         g.setColour (juce::Colour (0x08FFFFFF));
         g.drawVerticalLine (static_cast<int> (w * 0.36f), 0.0f, h);
         g.drawVerticalLine (static_cast<int> (w * 0.72f), 0.0f, h);
     }
 
+    // Top edge highlight
     g.setColour (juce::Colour (0x1AFFFFFF));
     g.drawHorizontalLine (0, 0.0f, w);
 
+    // Bottom edge shadow
     g.setColour (juce::Colour (0x55000000));
     g.drawHorizontalLine (static_cast<int> (h) - 1, 0.0f, w);
 
@@ -431,29 +425,18 @@ void PluginEditor::paint (juce::Graphics& g)
         const int row1H      = (int) (contentH * 0.42f);
         const int dividerY   = contentTop + row1H + margin / 2;
 
+        // Divider between row 1 and row 2
         g.setColour (juce::Colour (0x30FFFFFF));
         g.drawHorizontalLine (dividerY, static_cast<float> (margin), w - static_cast<float> (margin));
         g.setColour (juce::Colour (0x10000000));
         g.drawHorizontalLine (dividerY + 1, static_cast<float> (margin), w - static_cast<float> (margin));
+    }
 
-        // Draw lightning bolt badge near logo
-        const int logoW = juce::jmax (180, (int) (w * 0.20f));
-        const float badgeX = margin + logoW + 15.0f;
-        const float badgeY = margin + (headerH - 24.0f) / 2.0f;
-        const float badgeW = 12.0f;
-        const float badgeH = 24.0f;
-        
-        juce::Path bolt;
-        bolt.startNewSubPath(badgeX + badgeW * 0.8f, badgeY);
-        bolt.lineTo(badgeX + badgeW * 0.1f, badgeY + badgeH * 0.55f);
-        bolt.lineTo(badgeX + badgeW * 0.5f, badgeY + badgeH * 0.55f);
-        bolt.lineTo(badgeX + badgeW * 0.2f, badgeY + badgeH);
-        bolt.lineTo(badgeX + badgeW * 0.9f, badgeY + badgeH * 0.45f);
-        bolt.lineTo(badgeX + badgeW * 0.5f, badgeY + badgeH * 0.45f);
-        bolt.closeSubPath();
-        
-        g.setColour(juce::Colour(0xFFDB4437));
-        g.fillPath(bolt);
+    // Draw thin vertical separator line between LPF and HPF in the filter panel
+    if (! filterSeparatorBounds.isEmpty())
+    {
+        g.setColour (GhostSignalLookAndFeel::panelBorder);
+        g.fillRect (filterSeparatorBounds.toFloat().reduced (0, 1));
     }
 }
 
@@ -470,9 +453,14 @@ void PluginEditor::resized()
     const int gap      = juce::jmax (6,  (int) (w * 0.006f));
     const int headerH  = juce::jmax (36, (int) (h * 0.055f));
 
-    const int knobD    = juce::jlimit (44, 88, (int) (w * 0.055f));
+    // Large knob for master volume and important controls
+    const int largeKnobD = juce::jlimit (56, 100, (int) (w * 0.065f));
+    // Medium knob for standard controls
+    const int knobD      = juce::jlimit (44, 88, (int) (w * 0.055f));
+    // Small knob for secondary controls
+    const int smallKnobD = (int) (knobD * 0.75f);
 
-    layoutHeaderBar (margin, headerH, knobD);
+    layoutHeaderBar (margin, headerH, largeKnobD);
 
     const int contentTop = margin + headerH + margin;
     const int contentH   = h - contentTop - margin;
@@ -484,9 +472,9 @@ void PluginEditor::resized()
     const int row2H   = contentH - row1H - envRowH - 2 * rowGap;
     const int contentW = w - 2 * margin;
 
-    layoutRow1 (margin, contentTop, contentW, row1H, knobD);
+    layoutRow1 (margin, contentTop, contentW, row1H, knobD, smallKnobD, largeKnobD);
     layoutEnvelopeRow (margin, contentTop + row1H + rowGap, contentW, envRowH, knobD);
-    layoutRow2 (margin, contentTop + row1H + envRowH + 2 * rowGap, contentW, row2H, knobD);
+    layoutRow2 (margin, contentTop + row1H + envRowH + 2 * rowGap, contentW, row2H, knobD, smallKnobD);
 
     updatePulseWidthVisibility();
     syncEnvDisplays();
@@ -500,9 +488,9 @@ void PluginEditor::layoutHeaderBar (int margin, int headerH, int largeKnobD)
 {
     const int w = getWidth();
 
-    // Master volume knob: right-aligned in header
+    // Master volume knob: right-aligned in header (large)
     const int volSize    = largeKnobD;
-    const int volLabelH  = 14;
+    const int volLabelH  = 16;
     const int volTotalH  = volSize + volLabelH;
     const int volX       = w - margin - volSize;
     const int volCentreY = margin + (headerH - volTotalH) / 2;
@@ -526,18 +514,18 @@ void PluginEditor::layoutHeaderBar (int margin, int headerH, int largeKnobD)
 // layoutRow1() — OSC | SUB/NOISE | MIXER | FILTER
 // ─────────────────────────────────────────────────────────────────────────────
 
-void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH, int knobD)
+void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
+                               int knobD, int smallKnobD, int largeKnobD)
 {
     using R = juce::Rectangle<int>;
 
     const int mediumKnobD = knobD;
-    const int smallKnobD  = (int) (knobD * 0.75f);
     const int gap = juce::jmax (6, (int) (totalW * 0.006f));
 
     // Column widths — more breathing room between sections
     const int oscW    = (int) (totalW * 0.24f);
     const int subW    = (int) (totalW * 0.10f);
-    const int mixerW  = (int) (totalW * 0.20f);
+    const int mixerW  = (int) (totalW * 0.16f);
     const int filterW = (int) (totalW * 0.26f);
     const int spacerW = totalW - oscW - subW - mixerW - filterW - 4 * gap;
 
@@ -627,7 +615,7 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH, int knobD)
 
     curX += subW + gap;
 
-    // ── MIXER (horizontal row of 4 knobs) ─────────────────────────────────────
+    // ── MIXER (VCO1 Lvl + VCO2 Lvl on top row, then Sub/Drive/LPF Drive column) ─
     {
         const R mixerBounds (curX, y, mixerW, totalH);
         mixerPanel.setBounds (mixerBounds);
@@ -636,17 +624,23 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH, int knobD)
         const int padH   = juce::jmax (4, (int) (totalH * 0.04f));
         const int innerH = totalH - titleH - padH * 2;
 
-        const R mixerArea (curX + padH, y + titleH + padH,
-                           mixerW - 2 * padH, innerH);
+        // Top row: VCO1 Lvl and VCO2 Lvl side by side, slightly bigger
+        const int bigKnobD = (int) (smallKnobD * 1.15f);
+        const int topRowH  = juce::jmin (bigKnobD + 20, (int) (innerH * 0.30f));
+        const R topRowArea (curX + padH, y + titleH + padH,
+                            mixerW - 2 * padH, topRowH);
+        placeKnobRow ({ &mixerVco1Level, &mixerVco2Level }, topRowArea, bigKnobD);
 
-        // Four knobs horizontal: VCO1 Lvl, VCO2 Lvl, Sub Lvl, Drive
-        placeKnobRow ({ &mixerVco1Level, &mixerVco2Level, &mixerSubLevel, &mixerDrive },
-                      mixerArea, smallKnobD);
+        // Bottom column: Sub Lvl, Drive, LPF Drive
+        const int botY = y + titleH + padH + topRowH + padH;
+        const int botH = innerH - topRowH - padH;
+        const R botArea (curX + padH, botY, mixerW - 2 * padH, botH);
+        placeKnobColumn ({ &mixerSubLevel, &mixerDrive, &lpfDrive }, botArea, smallKnobD);
     }
 
     curX += mixerW + gap;
 
-    // ── FILTER (full height, redesigned) ────────────────────────────────────────
+    // ── FILTER (LPF left | thin separator | HPF right) ────────────────────────
     {
         const R filterBounds (curX, y, filterW, totalH);
         filterPanel.setBounds (filterBounds);
@@ -656,31 +650,38 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH, int knobD)
         const int innerH = totalH - titleH - padH * 2;
 
         const int topRowH = (int) (innerH * 0.55f);
-        
-        // Explicit layout for Filter
-        const int colW = (filterW - 2 * padH) / 2;
-        const int topY = y + titleH + padH;
-        
-        const int largeKnobWidgetH = juce::jmin(topRowH, (int)(knobD * 1.35f));
-        const int largeKnobY = topY + (topRowH - largeKnobWidgetH) / 2;
-        
-        lpfCutoff.setBounds(curX + padH, largeKnobY, colW, largeKnobWidgetH);
-        hpfCutoff.setBounds(curX + padH + colW, largeKnobY, colW, largeKnobWidgetH);
-        
-        const int botY = topY + topRowH + gap;
         const int botRowH = innerH - topRowH - gap;
-        const int smallKnobWidgetH = juce::jmin(botRowH, (int)(knobD * 1.35f));
-        const int smallKnobY = botY + (botRowH - smallKnobWidgetH) / 2;
-        
-        // Bottom row: LPF Res, HPF Res, LPF Drive (3 evenly spaced)
-        const int botRowW  = filterW - 2 * padH;
-        const int botColW  = botRowW / 3;
-        const int botKnobW = juce::jmin (botColW, colW / 2);
-        lpfRes.setBounds   (curX + padH + (botColW - botKnobW) / 2, smallKnobY, botKnobW, smallKnobWidgetH);
-        hpfRes.setBounds   (curX + padH + botColW + (botColW - botKnobW) / 2, smallKnobY, botKnobW, smallKnobWidgetH);
-        lpfDrive.setBounds (curX + padH + 2 * botColW + (botColW - botKnobW) / 2, smallKnobY, botKnobW, smallKnobWidgetH);
-        
 
+        const int topY = y + titleH + padH;
+        const int botY = topY + topRowH + gap;
+
+        const int innerW   = filterW - 2 * padH;
+        const int sepW     = juce::jmax (1, (int) (filterW * 0.006f));
+        const int colW     = (innerW - sepW) / 2;
+
+        // Column centre X positions (LPF Cut & LPF Res share lpfCenterX,
+        // HPF Cut & HPF Res share hpfCenterX)
+        const int lpfCenterX = curX + padH + colW / 2;
+        const int hpfCenterX = curX + padH + colW + sepW + colW / 2;
+
+        // Store separator line bounds for drawing in paint()
+        filterSeparatorBounds = juce::Rectangle<int> (curX + padH + colW, topY, sepW, innerH);
+
+        // ── Top row: large cutoff knobs, centered in each column ──
+        const int largeKnobSize = juce::jmin (colW, topRowH, (int) (largeKnobD * 1.35f));
+        const int largeKnobY    = topY + (topRowH - largeKnobSize) / 2;
+        lpfCutoff.setBounds (lpfCenterX - largeKnobSize / 2, largeKnobY, largeKnobSize, largeKnobSize);
+        hpfCutoff.setBounds (hpfCenterX - largeKnobSize / 2, largeKnobY, largeKnobSize, largeKnobSize);
+
+        // ── Bottom row: LPF Res and HPF Res, aligned with their cutoff knobs ──
+        const int smallKnobSize  = juce::jmin (colW / 2, botRowH, (int) (knobD * 1.35f));
+        const int smallKnobY     = botY + (botRowH - smallKnobSize) / 2;
+
+        // LPF Res — same X-centre as LPF Cut
+        lpfRes.setBounds (lpfCenterX - smallKnobSize / 2, smallKnobY, smallKnobSize, smallKnobSize);
+
+        // HPF Res — same X-centre as HPF Cut
+        hpfRes.setBounds (hpfCenterX - smallKnobSize / 2, smallKnobY, smallKnobSize, smallKnobSize);
     }
 
     curX += filterW + gap;
@@ -754,12 +755,12 @@ void PluginEditor::layoutEnvelopeRow (int x, int y, int totalW, int totalH, int 
 // layoutRow2() — GLIDE/VOICE | LFO1 | LFO2 | LFO3 | LFO4 | TAPE DELAY | AMP
 // ─────────────────────────────────────────────────────────────────────────────
 
-void PluginEditor::layoutRow2 (int x, int y, int totalW, int totalH, int knobD)
+void PluginEditor::layoutRow2 (int x, int y, int totalW, int totalH,
+                               int knobD, int smallKnobD)
 {
     using R = juce::Rectangle<int>;
 
     const int mediumKnobD = knobD;
-    const int smallKnobD  = (int) (knobD * 0.75f);
     const int gap = juce::jmax (6, (int) (totalW * 0.006f));
 
     const int glideW  = (int) (totalW * 0.10f);
@@ -797,7 +798,6 @@ void PluginEditor::layoutRow2 (int x, int y, int totalW, int totalH, int knobD)
                                juce::ComboBox& waveCombo,
                                LabeledKnob& rateKnob,
                                LabeledKnob& depthKnob,
-                               LabeledKnob& shapeKnob,
                                juce::ComboBox& destCombo,
                                LfoDisplay& display,
                                int panelX, int panelY, int panelW, int panelH,
@@ -817,30 +817,32 @@ void PluginEditor::layoutRow2 (int x, int y, int totalW, int totalH, int knobD)
         display.setBounds (panelX + padH, panelY + titleH + padH + comboH + padH,
                            panelW - 2 * padH, dispH);
 
+        // Knobs arranged horizontally: Rate, Depth
         const int knobAreaTop = titleH + padH + comboH + padH + dispH + padH;
         const R knobArea (panelX + padH, panelY + knobAreaTop,
                           panelW - 2 * padH,
                           panelH - knobAreaTop - padH - comboH);
-        placeKnobColumn ({ &rateKnob, &depthKnob, &shapeKnob }, knobArea, mediumKnobD);
+        placeKnobRow ({ &rateKnob, &depthKnob }, knobArea, mediumKnobD);
 
+        // Dest combo at the bottom
         destCombo.setBounds (panelX + padH, panelY + panelH - padH - comboH,
                              panelW - 2 * padH, comboH);
     };
 
     // ── LFO1 ─────────────────────────────────────────────────────────────────
-    layoutLfoPanel (lfo1Panel, lfo1Waveform, lfo1Rate, lfo1Depth, lfo1Shape, lfo1Dest, lfo1Display,
+    layoutLfoPanel (lfo1Panel, lfo1Waveform, lfo1Rate, lfo1Depth, lfo1Dest, lfo1Display,
                     curX, y, lfoW, totalH, mediumKnobD, gap);
     curX += lfoW + gap;
 
-    layoutLfoPanel (lfo2Panel, lfo2Waveform, lfo2Rate, lfo2Depth, lfo2Shape, lfo2Dest, lfo2Display,
+    layoutLfoPanel (lfo2Panel, lfo2Waveform, lfo2Rate, lfo2Depth, lfo2Dest, lfo2Display,
                     curX, y, lfoW, totalH, mediumKnobD, gap);
     curX += lfoW + gap;
 
-    layoutLfoPanel (lfo3Panel, lfo3Waveform, lfo3Rate, lfo3Depth, lfo3Shape, lfo3Dest, lfo3Display,
+    layoutLfoPanel (lfo3Panel, lfo3Waveform, lfo3Rate, lfo3Depth, lfo3Dest, lfo3Display,
                     curX, y, lfoW, totalH, mediumKnobD, gap);
     curX += lfoW + gap;
 
-    layoutLfoPanel (lfo4Panel, lfo4Waveform, lfo4Rate, lfo4Depth, lfo4Shape, lfo4Dest, lfo4Display,
+    layoutLfoPanel (lfo4Panel, lfo4Waveform, lfo4Rate, lfo4Depth, lfo4Dest, lfo4Display,
                     curX, y, lfoW, totalH, mediumKnobD, gap);
     curX += lfoW + gap;
 
@@ -910,13 +912,13 @@ float PluginEditor::computeLfoOutput (int waveform, float phase, float shape) co
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// placeKnobRow() — evenly distribute knobs across an area
+// placeKnobRow() — evenly distribute knobs across an area, centered in cells
 // ─────────────────────────────────────────────────────────────────────────────
 
 void PluginEditor::placeKnobRow (std::initializer_list<juce::Component*> knobs,
-                                   juce::Rectangle<int> area,
-                                   int knobD,
-                                   int /*panelTitleH*/)
+                                 juce::Rectangle<int> area,
+                                 int knobD,
+                                 int /*panelTitleH*/)
 {
     const int count = static_cast<int> (knobs.size());
     if (count == 0 || area.getWidth() <= 0 || area.getHeight() <= 0)
@@ -925,14 +927,16 @@ void PluginEditor::placeKnobRow (std::initializer_list<juce::Component*> knobs,
     const int cellW = area.getWidth() / count;
     const int knobWidgetH = juce::jmin (area.getHeight(),
                                         (int) (knobD * 1.35f));
-    const int knobY = area.getY() + (area.getHeight() - knobWidgetH) / 2;
 
     int i = 0;
     for (auto* knob : knobs)
     {
         if (knob == nullptr) { ++i; continue; }
         const int cellX = area.getX() + i * cellW;
-        knob->setBounds (cellX, knobY, cellW, knobWidgetH);
+        // Center the knob widget within its cell as a square
+        const int knobX = cellX + (cellW - knobWidgetH) / 2;
+        const int knobY = area.getY() + (area.getHeight() - knobWidgetH) / 2;
+        knob->setBounds (knobX, knobY, knobWidgetH, knobWidgetH);
         ++i;
     }
 }
@@ -952,13 +956,16 @@ void PluginEditor::placeKnobColumn (std::initializer_list<juce::Component*> knob
     const int cellH = area.getHeight() / count;
     const int knobWidgetH = juce::jmin (cellH, (int) (knobD * 1.35f));
     const int knobYOffset = (cellH - knobWidgetH) / 2;
+    // Center horizontally within the cell as a square
+    const int knobXOffset = (area.getWidth() - knobWidgetH) / 2;
 
     int i = 0;
     for (auto* knob : knobs)
     {
         if (knob == nullptr) { ++i; continue; }
         const int cellY = area.getY() + i * cellH;
-        knob->setBounds (area.getX(), cellY + knobYOffset, area.getWidth(), knobWidgetH);
+        knob->setBounds (area.getX() + knobXOffset, cellY + knobYOffset,
+                         knobWidgetH, knobWidgetH);
         ++i;
     }
 }
@@ -1044,17 +1051,23 @@ void PluginEditor::randomizePatch()
     {
         if (auto* param = apvts.getParameter (paramId))
         {
+            if (numChoices <= 1)
+                return;
             std::uniform_int_distribution<int> dist (0, numChoices - 1);
             const float value = (float) dist (rng) / (float) (numChoices - 1);
             param->setValueNotifyingHost (value);
         }
     };
 
-    std::uniform_int_distribution<int> waveDist (0, 4);
+    // Waveforms (use full range 0..6 for 7 choices)
+    std::uniform_int_distribution<int> waveDist (0, 6);
     if (auto* p = apvts.getParameter (Parameters::paramOsc1Waveform))
         p->setValueNotifyingHost ((float) waveDist (rng) / 6.0f);
     if (auto* p = apvts.getParameter (Parameters::paramOsc2Waveform))
         p->setValueNotifyingHost ((float) waveDist (rng) / 6.0f);
+
+    // Noise type (choice parameter — use randomizeChoice, not randomizeFloat)
+    randomizeChoice (Parameters::paramNoiseType, Parameters::noiseTypeChoices.size());
 
     randomizeFloat (Parameters::paramOsc1Tune, -50.0f, 50.0f);
     randomizeFloat (Parameters::paramOsc2Tune, -50.0f, 50.0f);
@@ -1065,48 +1078,56 @@ void PluginEditor::randomizePatch()
     randomizeFloat (Parameters::paramOsc1Gain, 0.3f, 1.0f);
     randomizeFloat (Parameters::paramOsc2Gain, 0.3f, 1.0f);
 
-    randomizeFloat (Parameters::paramLPFCutoff, 200.0f, 18000.0f);
+    // Filter — randomize LPF first, then constrain HPF to stay below LPF
+    const float lpfCutoff = std::uniform_real_distribution<float> (200.0f, 18000.0f) (rng);
+    randomizeFloat (Parameters::paramLPFCutoff, lpfCutoff, lpfCutoff);
+    const float hpfCutoff = std::uniform_real_distribution<float> (20.0f, std::min (500.0f, lpfCutoff * 0.4f)) (rng);
+    randomizeFloat (Parameters::paramHPFCutoff, hpfCutoff, hpfCutoff);
     randomizeFloat (Parameters::paramLPFRes, 0.0f, 0.8f);
-    randomizeFloat (Parameters::paramHPFCutoff, 20.0f, 500.0f);
     randomizeFloat (Parameters::paramHPFRes, 0.0f, 0.5f);
     randomizeFloat (Parameters::paramLPFDrive, 0.0f, 0.7f);
 
+    // Amp envelope — enforce minimum sustain so sound doesn't die
     randomizeFloat (Parameters::paramAmpAttack, 0.001f, 2.0f);
     randomizeFloat (Parameters::paramAmpDecay, 0.001f, 1.0f);
-    randomizeFloat (Parameters::paramAmpSustain, 0.0f, 1.0f);
+    randomizeFloat (Parameters::paramAmpSustain, 0.1f, 1.0f);
     randomizeFloat (Parameters::paramAmpRelease, 0.001f, 3.0f);
     randomizeFloat (Parameters::paramEnv1Attack, 0.001f, 2.0f);
     randomizeFloat (Parameters::paramEnv1Decay, 0.001f, 1.0f);
     randomizeFloat (Parameters::paramEnv1Sustain, 0.0f, 1.0f);
     randomizeFloat (Parameters::paramEnv1Release, 0.001f, 3.0f);
 
-    randomizeFloat (Parameters::paramLFO1Rate, 0.1f, 10.0f);
+    randomizeFloat (Parameters::paramLFO1Rate, 0.0f, 1.0f);
     randomizeFloat (Parameters::paramLFO1Depth, 0.0f, 1.0f);
-    randomizeFloat (Parameters::paramLFO1Shape, 0.0f, 1.0f);
     randomizeChoice (Parameters::paramLFO1Dest, (int) Parameters::lfoDestinationChoices.size());
 
-    randomizeFloat (Parameters::paramLFO2Rate, 0.1f, 10.0f);
+    randomizeFloat (Parameters::paramLFO2Rate, 0.0f, 1.0f);
     randomizeFloat (Parameters::paramLFO2Depth, 0.0f, 1.0f);
-    randomizeFloat (Parameters::paramLFO2Shape, 0.0f, 1.0f);
     randomizeChoice (Parameters::paramLFO2Dest, (int) Parameters::lfoDestinationChoices.size());
 
-    randomizeFloat (Parameters::paramLFO3Rate, 0.1f, 10.0f);
+    randomizeFloat (Parameters::paramLFO3Rate, 0.0f, 1.0f);
     randomizeFloat (Parameters::paramLFO3Depth, 0.0f, 1.0f);
-    randomizeFloat (Parameters::paramLFO3Shape, 0.0f, 1.0f);
     randomizeChoice (Parameters::paramLFO3Dest, (int) Parameters::lfoDestinationChoices.size());
 
-    randomizeFloat (Parameters::paramLFO4Rate, 0.1f, 10.0f);
+    randomizeFloat (Parameters::paramLFO4Rate, 0.0f, 1.0f);
     randomizeFloat (Parameters::paramLFO4Depth, 0.0f, 1.0f);
-    randomizeFloat (Parameters::paramLFO4Shape, 0.0f, 1.0f);
     randomizeChoice (Parameters::paramLFO4Dest, (int) Parameters::lfoDestinationChoices.size());
 
-    randomizeFloat (Parameters::paramMixerVco1Level, 0.0f, 1.0f);
-    randomizeFloat (Parameters::paramMixerVco2Level, 0.0f, 1.0f);
-    randomizeFloat (Parameters::paramMixerSubLevel, 0.0f, 0.8f);
+    // Mixer levels — ensure at least one source is audible
+    const float vco1Level = std::uniform_real_distribution<float> (0.0f, 1.0f) (rng);
+    const float vco2Level = std::uniform_real_distribution<float> (0.0f, 1.0f) (rng);
+    const float subLevel  = std::uniform_real_distribution<float> (0.0f, 0.8f) (rng);
+    randomizeFloat (Parameters::paramMixerVco1Level, vco1Level, vco1Level);
+    randomizeFloat (Parameters::paramMixerVco2Level, vco2Level, vco2Level);
+    randomizeFloat (Parameters::paramMixerSubLevel, subLevel, subLevel);
+
+    // Guarantee at least one oscillator/sub source is audible
+    if (vco1Level < 0.2f && vco2Level < 0.2f && subLevel < 0.1f)
+    {
+        randomizeFloat (Parameters::paramMixerVco1Level, 0.4f, 1.0f);
+    }
+
     randomizeFloat (Parameters::paramMixerDrive, 0.0f, 0.8f);
-
-    randomizeFloat (Parameters::paramGlideTime, 0.0f, 0.5f);
-
     updatePulseWidthVisibility();
     randomizeLocked = true;
     updateRandomizeButtonAppearance();
@@ -1121,14 +1142,14 @@ void PluginEditor::updateRandomizeButtonAppearance()
     if (randomizeLocked)
     {
         randomizeButton.setButtonText ("RANDOMIZE");
-        randomizeButton.setColour (juce::TextButton::buttonColourId, juce::Colour (0xFF333333));
-        randomizeButton.setColour (juce::TextButton::textColourOffId, juce::Colour (0xFF888888));
+        randomizeButton.setColour (juce::TextButton::buttonColourId, GhostSignalLookAndFeel::knobBody);
+        randomizeButton.setColour (juce::TextButton::textColourOffId, GhostSignalLookAndFeel::textSecondary);
     }
     else
     {
         randomizeButton.setButtonText ("RANDOMIZE?");
-        randomizeButton.setColour (juce::TextButton::buttonColourId, juce::Colour (0xFFDB4437));
-        randomizeButton.setColour (juce::TextButton::textColourOffId, juce::Colour (0xFF000000));
+        randomizeButton.setColour (juce::TextButton::buttonColourId, GhostSignalLookAndFeel::accent);
+        randomizeButton.setColour (juce::TextButton::textColourOffId, juce::Colours::black);
     }
 }
 
@@ -1191,8 +1212,7 @@ void PluginEditor::timerCallback()
     auto syncLfoDisplay = [&](LfoDisplay& display,
                                const juce::String& waveId,
                                const juce::String& rateId,
-                               const juce::String& depthId,
-                               const juce::String& shapeId)
+                               const juce::String& depthId)
     {
         if (auto* p = apvts.getRawParameterValue (waveId))
             display.setWaveform ((int) p->load());
@@ -1200,14 +1220,12 @@ void PluginEditor::timerCallback()
             display.setRate (p->load());
         if (auto* p = apvts.getRawParameterValue (depthId))
             display.setDepth (p->load());
-        if (auto* p = apvts.getRawParameterValue (shapeId))
-            display.setShape (p->load());
     };
 
-    syncLfoDisplay (lfo1Display, Parameters::paramLFO1Waveform, Parameters::paramLFO1Rate, Parameters::paramLFO1Depth, Parameters::paramLFO1Shape);
-    syncLfoDisplay (lfo2Display, Parameters::paramLFO2Waveform, Parameters::paramLFO2Rate, Parameters::paramLFO2Depth, Parameters::paramLFO2Shape);
-    syncLfoDisplay (lfo3Display, Parameters::paramLFO3Waveform, Parameters::paramLFO3Rate, Parameters::paramLFO3Depth, Parameters::paramLFO3Shape);
-    syncLfoDisplay (lfo4Display, Parameters::paramLFO4Waveform, Parameters::paramLFO4Rate, Parameters::paramLFO4Depth, Parameters::paramLFO4Shape);
+    syncLfoDisplay (lfo1Display, Parameters::paramLFO1Waveform, Parameters::paramLFO1Rate, Parameters::paramLFO1Depth);
+    syncLfoDisplay (lfo2Display, Parameters::paramLFO2Waveform, Parameters::paramLFO2Rate, Parameters::paramLFO2Depth);
+    syncLfoDisplay (lfo3Display, Parameters::paramLFO3Waveform, Parameters::paramLFO3Rate, Parameters::paramLFO3Depth);
+    syncLfoDisplay (lfo4Display, Parameters::paramLFO4Waveform, Parameters::paramLFO4Rate, Parameters::paramLFO4Depth);
 
     auto advancePhase = [](float& phase, float rate)
     {
@@ -1235,10 +1253,6 @@ void PluginEditor::timerCallback()
     const int w3 = apvts.getRawParameterValue (Parameters::paramLFO3Waveform) ? (int) apvts.getRawParameterValue (Parameters::paramLFO3Waveform)->load() : 0;
     const int w4 = apvts.getRawParameterValue (Parameters::paramLFO4Waveform) ? (int) apvts.getRawParameterValue (Parameters::paramLFO4Waveform)->load() : 0;
 
-    const float s1 = apvts.getRawParameterValue (Parameters::paramLFO1Shape) ? apvts.getRawParameterValue (Parameters::paramLFO1Shape)->load() : 0.5f;
-    const float s2 = apvts.getRawParameterValue (Parameters::paramLFO2Shape) ? apvts.getRawParameterValue (Parameters::paramLFO2Shape)->load() : 0.5f;
-    const float s3 = apvts.getRawParameterValue (Parameters::paramLFO3Shape) ? apvts.getRawParameterValue (Parameters::paramLFO3Shape)->load() : 0.5f;
-    const float s4 = apvts.getRawParameterValue (Parameters::paramLFO4Shape) ? apvts.getRawParameterValue (Parameters::paramLFO4Shape)->load() : 0.5f;
 
     const float dep1 = apvts.getRawParameterValue (Parameters::paramLFO1Depth) ? apvts.getRawParameterValue (Parameters::paramLFO1Depth)->load() : 0.0f;
     const float dep2 = apvts.getRawParameterValue (Parameters::paramLFO2Depth) ? apvts.getRawParameterValue (Parameters::paramLFO2Depth)->load() : 0.0f;
@@ -1262,10 +1276,10 @@ void PluginEditor::timerCallback()
         if (dest == 3) pw1Mod += lfoOut;
         else if (dest == 4) pw2Mod += lfoOut;
     };
-    addMod (d1, lfoPhase1, w1, s1, dep1);
-    addMod (d2, lfoPhase2, w2, s2, dep2);
-    addMod (d3, lfoPhase3, w3, s3, dep3);
-    addMod (d4, lfoPhase4, w4, s4, dep4);
+    addMod (d1, lfoPhase1, w1, 0.5f, dep1);
+    addMod (d2, lfoPhase2, w2, 0.5f, dep2);
+    addMod (d3, lfoPhase3, w3, 0.5f, dep3);
+    addMod (d4, lfoPhase4, w4, 0.5f, dep4);
 
     const bool pw1Modulated = (std::abs (pw1Mod) > 0.001f);
     const bool pw2Modulated = (std::abs (pw2Mod) > 0.001f);
@@ -1309,16 +1323,12 @@ void PluginEditor::timerCallback()
     setKnobLed (ampRelease,     Parameters::paramAmpRelease, 0.3f);
     setKnobLed (lfo1Rate,       Parameters::paramLFO1Rate, 1.0f);
     setKnobLed (lfo1Depth,      Parameters::paramLFO1Depth, 0.5f);
-    setKnobLed (lfo1Shape,      Parameters::paramLFO1Shape, 0.5f);
     setKnobLed (lfo2Rate,       Parameters::paramLFO2Rate, 1.0f);
     setKnobLed (lfo2Depth,      Parameters::paramLFO2Depth, 0.5f);
-    setKnobLed (lfo2Shape,      Parameters::paramLFO2Shape, 0.5f);
     setKnobLed (lfo3Rate,       Parameters::paramLFO3Rate, 1.0f);
     setKnobLed (lfo3Depth,      Parameters::paramLFO3Depth, 0.5f);
-    setKnobLed (lfo3Shape,      Parameters::paramLFO3Shape, 0.5f);
     setKnobLed (lfo4Rate,       Parameters::paramLFO4Rate, 1.0f);
     setKnobLed (lfo4Depth,      Parameters::paramLFO4Depth, 0.5f);
-    setKnobLed (lfo4Shape,      Parameters::paramLFO4Shape, 0.5f);
     setKnobLed (ampGain,        Parameters::paramAmpGain, 0.7f);
     setKnobLed (pan,            Parameters::paramPan, 0.5f);
     setKnobLed (glideTime,      Parameters::paramGlideTime, 0.0f);

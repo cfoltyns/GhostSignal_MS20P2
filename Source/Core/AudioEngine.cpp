@@ -144,33 +144,93 @@ void AudioEngine::process(juce::AudioBuffer<float> &buffer,
         return (ch >= 0 && ch < 5) ? m[ch] : ::dsp::LfoWaveform::sine;
     };
 
-   // LFO1
-   vp.lfo1.waveform   = mapLfoWave (getChoice(Parameters::paramLFO1Waveform));
-   vp.lfo1.rate       = getFloat(Parameters::paramLFO1Rate);
-   vp.lfo1.depth      = getFloat(Parameters::paramLFO1Depth);
-   vp.lfo1.shapeMorph = getFloat(Parameters::paramLFO1Shape);
-   vp.lfo1Dest        = getChoice(Parameters::paramLFO1Dest);
+    // Get BPM from play head for tempo-synced LFO rates
+    double bpm = 120.0;
+    if (playHead != nullptr)
+    {
+        if (auto posInfo = playHead->getPosition())
+            bpm = posInfo->getBpm().orFallback(120.0);
+    }
 
-   // LFO2
-   vp.lfo2.waveform   = mapLfoWave (getChoice(Parameters::paramLFO2Waveform));
-   vp.lfo2.rate       = getFloat(Parameters::paramLFO2Rate);
-   vp.lfo2.depth      = getFloat(Parameters::paramLFO2Depth);
-   vp.lfo2.shapeMorph = getFloat(Parameters::paramLFO2Shape);
-   vp.lfo2Dest        = getChoice(Parameters::paramLFO2Dest);
+    // Convert sync division index to frequency in Hz
+    // Index 0 = "Off" (free-running), 1-6 = straight, 7-12 = dotted, 13-18 = triplet
+    const auto syncIndexToHz = [bpm](int syncIdx) -> float {
+        if (syncIdx <= 0) return -1.0f; // Off = free-running
+        // Base note lengths in beats (1/1 = 1 beat, 1/2 = 0.5, etc.)
+        static const float baseBeats[] = {
+            1.0f, 0.5f, 0.25f, 0.125f, 0.0625f, 0.03125f  // 1/1, 1/2, 1/4, 1/8, 1/16, 1/32
+        };
+        int type = (syncIdx - 1) / 6;  // 0=straight, 1=triplet, 2=dotted
+        int idx  = (syncIdx - 1) % 6;  // 0-5
+        if (idx < 0 || idx >= 6) return -1.0f;
+        float beats = baseBeats[idx];
+        if (type == 1)      beats *= 2.0f / 3.0f;  // triplet
+        else if (type == 2) beats *= 1.5f;          // dotted
+        float freq = (float)(bpm / 60.0 * (1.0 / beats));
+        return freq;
+    };
 
-   // LFO3
-   vp.lfo3.waveform   = mapLfoWave (getChoice(Parameters::paramLFO3Waveform));
-   vp.lfo3.rate       = getFloat(Parameters::paramLFO3Rate);
-   vp.lfo3.depth      = getFloat(Parameters::paramLFO3Depth);
-   vp.lfo3.shapeMorph = getFloat(Parameters::paramLFO3Shape);
-   vp.lfo3Dest        = getChoice(Parameters::paramLFO3Dest);
+    // Combined rate+sync: rate param is 0.0-1.0
+    // 0.0-0.5 = free-running rate (0.01 Hz to 20 Hz)
+    // 0.5-1.0 = tempo-synced divisions (19 sync choices)
+    const auto resolveLfoRate = [bpm, &syncIndexToHz](float normRate) -> std::pair<float, bool> {
+        if (normRate < 0.5f)
+        {
+            // Free-running: map 0.0-0.5 to 0.01-20 Hz
+            float t = normRate / 0.5f;
+            float freq = 0.01f + t * (20.0f - 0.01f);
+            return { freq, false };
+        }
+        else
+        {
+            // Tempo sync: map 0.5-1.0 to sync divisions 1-18
+            float t = (normRate - 0.5f) / 0.5f;
+            int syncIdx = 1 + (int) std::round (t * 17.0f);
+            syncIdx = juce::jlimit (1, 18, syncIdx);
+            float syncHz = syncIndexToHz (syncIdx);
+            return { syncHz, true };
+        }
+    };
 
-   // LFO4
-   vp.lfo4.waveform   = mapLfoWave (getChoice(Parameters::paramLFO4Waveform));
-   vp.lfo4.rate       = getFloat(Parameters::paramLFO4Rate);
-   vp.lfo4.depth      = getFloat(Parameters::paramLFO4Depth);
-   vp.lfo4.shapeMorph = getFloat(Parameters::paramLFO4Shape);
-   vp.lfo4Dest        = getChoice(Parameters::paramLFO4Dest);
+    // LFO1
+    vp.lfo1.waveform   = mapLfoWave (getChoice(Parameters::paramLFO1Waveform));
+    {
+        auto [rate, sync] = resolveLfoRate (getFloat(Parameters::paramLFO1Rate));
+        vp.lfo1.rate = rate;
+        vp.lfo1.tempoSync = sync;
+    }
+    vp.lfo1.depth      = getFloat(Parameters::paramLFO1Depth);
+    vp.lfo1Dest        = getChoice(Parameters::paramLFO1Dest);
+
+    // LFO2
+    vp.lfo2.waveform   = mapLfoWave (getChoice(Parameters::paramLFO2Waveform));
+    {
+        auto [rate, sync] = resolveLfoRate (getFloat(Parameters::paramLFO2Rate));
+        vp.lfo2.rate = rate;
+        vp.lfo2.tempoSync = sync;
+    }
+    vp.lfo2.depth      = getFloat(Parameters::paramLFO2Depth);
+    vp.lfo2Dest        = getChoice(Parameters::paramLFO2Dest);
+
+    // LFO3
+    vp.lfo3.waveform   = mapLfoWave (getChoice(Parameters::paramLFO3Waveform));
+    {
+        auto [rate, sync] = resolveLfoRate (getFloat(Parameters::paramLFO3Rate));
+        vp.lfo3.rate = rate;
+        vp.lfo3.tempoSync = sync;
+    }
+    vp.lfo3.depth      = getFloat(Parameters::paramLFO3Depth);
+    vp.lfo3Dest        = getChoice(Parameters::paramLFO3Dest);
+
+    // LFO4
+    vp.lfo4.waveform   = mapLfoWave (getChoice(Parameters::paramLFO4Waveform));
+    {
+        auto [rate, sync] = resolveLfoRate (getFloat(Parameters::paramLFO4Rate));
+        vp.lfo4.rate = rate;
+        vp.lfo4.tempoSync = sync;
+    }
+    vp.lfo4.depth      = getFloat(Parameters::paramLFO4Depth);
+    vp.lfo4Dest        = getChoice(Parameters::paramLFO4Dest);
 
   // Glide
   vp.glideTime = getFloat(Parameters::paramGlideTime);

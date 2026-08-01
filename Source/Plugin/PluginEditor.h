@@ -3,12 +3,15 @@
  *
  * (c) 2026 Ghost Signal
  *
- * Description: Plugin editor — fully responsive layout using proportional math.
- *              All setBounds() calls driven by getWidth()/getHeight() ratios.
+ * Description: Premium industrial plugin editor — fully responsive layout
+ *              using proportional math. All setBounds() calls driven by
+ *              getWidth()/getHeight() ratios.
  *
- * Two-row architecture:
- *   Row1 = Sources + Filter + Mod
- *   Row2 = Glide/Voice + LFO1-4 + Tape Delay + Amp + VCA Env.
+ * Signal-flow layout:
+ *   Header: Logo | Randomize | Master Volume
+ *   Row 1:  VCO1 | VCO2 | Sub/Noise | Mixer | Filter
+ *   Row 2:  VCA Env | VCF Env
+ *   Row 3:  Glide/Voice | LFO1 | LFO2 | LFO3 | LFO4 | Tape Delay | Amp
  */
 
 #pragma once
@@ -37,9 +40,11 @@ public:
 private:
     // ── Layout helpers ────────────────────────────────────────────────────────
     void layoutHeaderBar (int margin, int headerH, int largeKnobD);
-    void layoutRow1 (int x, int y, int totalW, int totalH, int knobD);
+    void layoutRow1 (int x, int y, int totalW, int totalH,
+                     int knobD, int smallKnobD, int largeKnobD);
     void layoutEnvelopeRow (int x, int y, int totalW, int totalH, int mediumKnobD);
-    void layoutRow2 (int x, int y, int totalW, int totalH, int knobD);
+    void layoutRow2 (int x, int y, int totalW, int totalH,
+                     int knobD, int smallKnobD);
 
     // Compute a simulated LFO output value at a given phase for UI animation.
     float computeLfoOutput (int waveform, float phase, float shape) const;
@@ -49,7 +54,7 @@ private:
                        juce::Rectangle<int> area,
                        int knobD,
                        int panelTitleH = 0);
-                       
+
     void placeKnobColumn (std::initializer_list<juce::Component*> knobs,
                           juce::Rectangle<int> area,
                           int knobD);
@@ -106,8 +111,9 @@ private:
 
     // ── NOISE ─────────────────────────────────────────────────────────────────
     Panel       noisePanel { "NOISE" };
-    LabeledKnob noiseType { "Color" };
+    juce::ComboBox noiseType { "Noise Color" };
     LabeledKnob noiseGain { "Level" };
+
 
     // ── MIXER ─────────────────────────────────────────────────────────────────
     Panel       mixerPanel { "MIXER" };
@@ -123,6 +129,7 @@ private:
     LabeledKnob lpfCutoff   { "LPF Cut" };
     LabeledKnob lpfRes      { "RES" };
     LabeledKnob lpfDrive    { "LPF Drv" };
+    juce::Rectangle<int> filterSeparatorBounds;
 
     // ── ENVELOPE 2 (VCA ADSR) ─────────────────────────────────────────────────
     Panel       ampPanel   { "VCA ENV" };
@@ -155,7 +162,6 @@ private:
     juce::ComboBox lfo1Waveform;
     LabeledKnob    lfo1Rate    { "Rate" };
     LabeledKnob    lfo1Depth   { "Depth" };
-    LabeledKnob    lfo1Shape   { "Shape" };
     juce::ComboBox lfo1Dest;
     LfoDisplay     lfo1Display;
 
@@ -164,7 +170,6 @@ private:
     juce::ComboBox lfo2Waveform;
     LabeledKnob    lfo2Rate    { "Rate" };
     LabeledKnob    lfo2Depth   { "Depth" };
-    LabeledKnob    lfo2Shape   { "Shape" };
     juce::ComboBox lfo2Dest;
     LfoDisplay     lfo2Display;
 
@@ -173,7 +178,6 @@ private:
     juce::ComboBox lfo3Waveform;
     LabeledKnob    lfo3Rate    { "Rate" };
     LabeledKnob    lfo3Depth   { "Depth" };
-    LabeledKnob    lfo3Shape   { "Shape" };
     juce::ComboBox lfo3Dest;
     LfoDisplay     lfo3Display;
 
@@ -182,13 +186,12 @@ private:
     juce::ComboBox lfo4Waveform;
     LabeledKnob    lfo4Rate    { "Rate" };
     LabeledKnob    lfo4Depth   { "Depth" };
-    LabeledKnob    lfo4Shape   { "Shape" };
     juce::ComboBox lfo4Dest;
     LfoDisplay     lfo4Display;
 
     // ── TAPE DELAY ───────────────────────────────────────────────────────────
     Panel          tapeDelayPanel { "TAPE DELAY" };
-    LabeledKnob    tapeDelayMode { "Mode" };
+    LabeledKnob    tapeDelayMode     { "Mode" };
     LabeledKnob    tapeDelayTime     { "Time" };
     LabeledKnob    tapeDelayFeedback { "FB" };
     LabeledKnob    tapeDelayMix      { "Mix" };
@@ -219,7 +222,8 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   osc2OctaveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   osc2TuneAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   subOctaveAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   noiseTypeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> noiseTypeAttachment;
+
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   noiseGainAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   mixerVco1LevelAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   mixerVco2LevelAttachment;
@@ -240,22 +244,18 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   ampReleaseAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   lfo1RateAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   lfo1DepthAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   lfo1ShapeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> lfo1WaveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> lfo1DestAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   lfo2RateAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   lfo2DepthAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   lfo2ShapeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> lfo2WaveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> lfo2DestAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   lfo3RateAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   lfo3DepthAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   lfo3ShapeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> lfo3WaveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> lfo3DestAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   lfo4RateAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   lfo4DepthAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   lfo4ShapeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> lfo4WaveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> lfo4DestAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   ampGainAttachment;

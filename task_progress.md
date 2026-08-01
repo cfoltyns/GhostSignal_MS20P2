@@ -49,6 +49,12 @@
 ## 12. Update README
 - [x] Update controls documentation
 
-## 13. Build and verify
-- [ ] Build the project
-- [ ] Verify compilation succeeds
+## 13. Fix mode knob in tape delay section
+- [x] Fix tapeDelayMode type mismatch: declared as juce::ComboBox in PluginEditor.h but used as LabeledKnob
+- [x] Change tapeDelayMode declaration from juce::ComboBox to LabeledKnob { "Mode" }
+- [x] Add snapping behavior to LabeledKnob::sliderValueChanged for discrete mode selection
+- [x] Verify mode knob methods compile (setSnapToValues, setTextValues, setAutoCenterText, getSlider, setCenterText)
+
+## 14. Build and verify
+- [x] Build the project
+- [x] Verify compilation succeeds (all targets: SharedCode, Standalone, AU, VST3)

@@ -3,11 +3,13 @@
  *
  * (c) 2026 Ghost Signal
  *
- * Description: Rotary waveform selector knob — snaps between waveform positions,
- *              draws the selected waveform icon in the knob center.
+ * Description: Premium rotary waveform selector knob — snaps between waveform
+ *              positions, draws the selected waveform icon in the knob center.
+ *              Uses the GhostSignalLookAndFeel for rendering.
  */
 
 #include "WaveformKnob.h"
+#include "../LookAndFeel.h"
 #include <random>
 
 WaveformKnob::WaveformKnob (const juce::String& labelText)
@@ -18,9 +20,9 @@ WaveformKnob::WaveformKnob (const juce::String& labelText)
 
     label.setText (labelText, juce::dontSendNotification);
     label.setJustificationType (juce::Justification::centred);
-    label.setColour (juce::Label::textColourId,       juce::Colour (0xFFCCCCCC));
+    label.setColour (juce::Label::textColourId,       GhostSignalLookAndFeel::textSecondary);
     label.setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
-    label.setFont (juce::Font (12.0f, juce::Font::bold));
+    label.setFont (GhostSignalLookAndFeel::getKnobLabelFont (60));
     addAndMakeVisible (label);
 }
 
@@ -41,8 +43,8 @@ void WaveformKnob::setSnapToValues (const float* values, int numValues)
 
 void WaveformKnob::paint (juce::Graphics& g)
 {
-    // Draw a subtle border around the component if needed
-    juce::Component::paint (g);
+    // WaveformKnob delegates rendering to the WaveformSlider and LabeledKnob
+    // via the LookAndFeel. No custom paint needed here.
 }
 
 void WaveformKnob::resized()
@@ -63,8 +65,7 @@ void WaveformKnob::resized()
     const int labelY = knobAreaH + gap;
     label.setBounds (0, labelY, totalW, labelH);
 
-    const float fontSize = juce::jlimit (10.0f, 15.0f, (float) totalH * 0.17f);
-    label.setFont (juce::Font (fontSize, juce::Font::bold));
+    label.setFont (GhostSignalLookAndFeel::getKnobLabelFont (knobSize));
 }
 
 WaveformKnob::WaveformSlider::WaveformSlider()
@@ -107,7 +108,7 @@ void WaveformKnob::WaveformSlider::drawWaveformIcon (juce::Graphics& g,
                                                      juce::Rectangle<float> area,
                                                      int waveIndex) const
 {
-    g.setColour (juce::Colour (0xFFF0F0F0));
+    g.setColour (GhostSignalLookAndFeel::textPrimary);
 
     const float x0 = area.getX();
     const float x1 = area.getRight();

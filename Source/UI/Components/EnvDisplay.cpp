@@ -4,16 +4,18 @@
  * (c) 2026 Ghost Signal
  *
  * Description: Interactive ADSR envelope display with 4 draggable points.
+ *              Uses the GhostSignalLookAndFeel color palette.
  */
 
 #include "EnvDisplay.h"
+#include "../LookAndFeel.h"
 
 EnvDisplay::EnvDisplay()
 {
     setRepaintsOnMouseActivity (true);
 }
 
-// ─── Layout helpers ──────────────────────────────────────────────────────────
+// ─── Layout helpers ────────────────────────────────────────────────────────────
 
 static constexpr float marginL = 3.0f;   // reduced for edge-to-edge curve
 static constexpr float marginR = 3.0f;
@@ -95,7 +97,7 @@ juce::Path EnvDisplay::getEnvelopePath() const
     return path;
 }
 
-// ─── Paint ───────────────────────────────────────────────────────────────────
+// ─── Paint ────────────────────────────────────────────────────────────────────
 
 void EnvDisplay::paint (juce::Graphics& g)
 {
@@ -103,11 +105,22 @@ void EnvDisplay::paint (juce::Graphics& g)
     const float w = b.getWidth();
     const float h = b.getHeight();
 
-    // Background — dark screen
-    g.setColour (juce::Colour (0xFF0A0A0A));
+    // Background — dark screen with subtle gradient
+    juce::ColourGradient bgGrad;
+    bgGrad.point1 = { 0.0f, 0.0f };
+    bgGrad.point2 = { 0.0f, h };
+    bgGrad.addColour (0.0f, GhostSignalLookAndFeel::panel.darker (0.1f));
+    bgGrad.addColour (1.0f, GhostSignalLookAndFeel::panel.darker (0.2f));
+    g.setGradientFill (bgGrad);
     g.fillRoundedRectangle (b, 4.0f);
-    g.setColour (juce::Colour (0xFF2A2A2A));
+
+    // Border
+    g.setColour (GhostSignalLookAndFeel::panelBorder);
     g.drawRoundedRectangle (b.reduced (0.5f), 4.0f, 1.0f);
+
+    // Inner shadow for depth
+    g.setColour (GhostSignalLookAndFeel::panelShadow);
+    g.drawRoundedRectangle (b.reduced (1.0f), 3.5f, 0.5f);
 
     // Grid lines
     g.setColour (juce::Colour (0x12FFFFFF));
@@ -122,15 +135,15 @@ void EnvDisplay::paint (juce::Graphics& g)
         g.drawHorizontalLine ((int) y, b.getX(), b.getRight());
     }
 
-    // Envelope fill — subtle gradient
+    // Envelope fill — subtle gradient using accent color
     {
         juce::Path fillPath = getEnvelopePath();
         fillPath.lineTo (fillPath.getBounds().getBottomRight());
         fillPath.closeSubPath();
 
         juce::ColourGradient fillGrad (
-            juce::Colour (0x40DB4437), juce::jmax (b.getX(), fillPath.getBounds().getCentreX()), b.getY(),
-            juce::Colour (0x10DB4437), juce::jmax (b.getX(), fillPath.getBounds().getCentreX()), b.getBottom(),
+            GhostSignalLookAndFeel::accent.withAlpha (0.35f), juce::jmax (b.getX(), fillPath.getBounds().getCentreX()), b.getY(),
+            GhostSignalLookAndFeel::accent.withAlpha (0.10f), juce::jmax (b.getX(), fillPath.getBounds().getCentreX()), b.getBottom(),
             false);
         g.setGradientFill (fillGrad);
         g.fillPath (fillPath);
@@ -138,8 +151,12 @@ void EnvDisplay::paint (juce::Graphics& g)
 
     // Envelope curve
     const juce::Path envPath = getEnvelopePath();
-    g.setColour (juce::Colour (0xFFFFDD44));
+    g.setColour (GhostSignalLookAndFeel::accent);
     g.strokePath (envPath, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    // Subtle glow behind envelope curve
+    g.setColour (GhostSignalLookAndFeel::accent.withAlpha (0.15f));
+    g.strokePath (envPath, juce::PathStrokeType (4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     // Stage separator lines (dotted)
     g.setColour (juce::Colour (0x20FFFFFF));
@@ -158,13 +175,13 @@ void EnvDisplay::paint (juce::Graphics& g)
                                 bool isDragging,
                                 const juce::String& label)
     {
-        g.setColour (isDragging ? juce::Colour (0xFFFFDD44) : juce::Colour (0xDDFFFFFF));
+        g.setColour (isDragging ? GhostSignalLookAndFeel::accent : GhostSignalLookAndFeel::textPrimary);
         g.fillEllipse (pt);
-        g.setColour (juce::Colour (0xFF222222));
+        g.setColour (GhostSignalLookAndFeel::panel.darker (0.3f));
         g.drawEllipse (pt, 1.0f);
 
         // Label below or above the point
-        g.setColour (juce::Colour (0x88AAAAAA));
+        g.setColour (GhostSignalLookAndFeel::textSecondary);
         g.setFont (juce::Font (8.0f, juce::Font::plain));
         juce::Rectangle<float> labelBounds = pt.translated (0.0f, isDragging ? -12.0f : 8.0f);
         labelBounds.setHeight (10.0f);
@@ -178,13 +195,13 @@ void EnvDisplay::paint (juce::Graphics& g)
     drawPoint (getReleasePoint(), dragTarget == release, "R");
 }
 
-// ─── Resized ─────────────────────────────────────────────────────────────────
+// ─── Resized ──────────────────────────────────────────────────────────────────
 
 void EnvDisplay::resized()
 {
 }
 
-// ─── Mouse handling ──────────────────────────────────────────────────────────
+// ─── Mouse handling ────────────────────────────────────────────────────────────
 
 void EnvDisplay::mouseDown (const juce::MouseEvent& e)
 {
@@ -254,7 +271,7 @@ void EnvDisplay::mouseUp (const juce::MouseEvent&)
     dragTarget = none;
 }
 
-// ─── Raw-value helpers (for external sync) ───────────────────────────────────
+// ─── Raw-value helpers (for external sync) ────────────────────────────────────
 
 // These are defined in the header as inline convenience methods.
 // They convert between raw parameter values (seconds) and normalized 0..1.

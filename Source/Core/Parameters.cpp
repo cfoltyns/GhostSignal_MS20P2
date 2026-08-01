@@ -9,6 +9,9 @@
 const juce::StringArray Parameters::lfoWaveformChoices = { "Sine", "Triangle", "Square", "Sawtooth", "Random" };
 const juce::StringArray Parameters::lfoDestinationChoices = { "Off", "VCO1 Pitch", "VCO2 Pitch", "VCO1 PWM", "VCO2 PWM", "VCO1 Tune", "VCO2 Tune", "VCO1 Level", "VCO2 Level", "Filter Cutoff", "Filter Res", "Amp Gain", "Pan" };
 
+const juce::StringArray Parameters::noiseTypeChoices = { "Brown", "Pink", "White", "Blue", "Violet" };
+
+
 juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createParameterLayout()
 {
     using namespace juce;
@@ -57,7 +60,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createParameterL
     addFloat (paramSubGain, "Sub Gain", 0.0f, 1.0f, 0.5f);
 
     // -- NOISE --
-    addChoice (paramNoiseType, "Noise Type", StringArray { "Brown", "Pink", "White", "Blue", "Violet" }, 2);
+    addChoice (paramNoiseType, "Noise Type", Parameters::noiseTypeChoices, 2);
+
     addFloat  (paramNoiseGain, "Noise Gain", 0.0f, 1.0f, 0.5f);
 
     // -- MIXER --
@@ -80,30 +84,26 @@ juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createParameterL
 
     // -- LFO 1 --
     addChoice (paramLFO1Waveform, "LFO1 Waveform", Parameters::lfoWaveformChoices, 0);
-    addFloat  (paramLFO1Rate,     "LFO1 Rate", 0.01f, 20.0f, 1.0f, 0.001f, 0.3f);
+    addFloat  (paramLFO1Rate,     "LFO1 Rate", 0.0f, 1.0f, 0.25f, 0.001f, 0.5f);
     addFloat  (paramLFO1Depth,    "LFO1 Depth", 0.0f, 1.0f, 0.5f);
-    addFloat  (paramLFO1Shape,    "LFO1 Shape", 0.0f, 1.0f, 0.5f);
     addChoice (paramLFO1Dest,    "LFO1 Destination", Parameters::lfoDestinationChoices, 0);
 
     // -- LFO 2 --
     addChoice (paramLFO2Waveform, "LFO2 Waveform", Parameters::lfoWaveformChoices, 0);
-    addFloat  (paramLFO2Rate,     "LFO2 Rate", 0.01f, 20.0f, 1.0f, 0.001f, 0.3f);
+    addFloat  (paramLFO2Rate,     "LFO2 Rate", 0.0f, 1.0f, 0.25f, 0.001f, 0.5f);
     addFloat  (paramLFO2Depth,    "LFO2 Depth", 0.0f, 1.0f, 0.5f);
-    addFloat  (paramLFO2Shape,    "LFO2 Shape", 0.0f, 1.0f, 0.5f);
     addChoice (paramLFO2Dest,    "LFO2 Destination", Parameters::lfoDestinationChoices, 0);
 
     // -- LFO 3 --
     addChoice (paramLFO3Waveform, "LFO3 Waveform", Parameters::lfoWaveformChoices, 0);
-    addFloat  (paramLFO3Rate,     "LFO3 Rate", 0.01f, 20.0f, 1.0f, 0.001f, 0.3f);
+    addFloat  (paramLFO3Rate,     "LFO3 Rate", 0.0f, 1.0f, 0.25f, 0.001f, 0.5f);
     addFloat  (paramLFO3Depth,    "LFO3 Depth", 0.0f, 1.0f, 0.5f);
-    addFloat  (paramLFO3Shape,    "LFO3 Shape", 0.0f, 1.0f, 0.5f);
     addChoice (paramLFO3Dest,    "LFO3 Destination", Parameters::lfoDestinationChoices, 0);
 
     // -- LFO 4 --
     addChoice (paramLFO4Waveform, "LFO4 Waveform", Parameters::lfoWaveformChoices, 0);
-    addFloat  (paramLFO4Rate,     "LFO4 Rate", 0.01f, 20.0f, 1.0f, 0.001f, 0.3f);
+    addFloat  (paramLFO4Rate,     "LFO4 Rate", 0.0f, 1.0f, 0.25f, 0.001f, 0.5f);
     addFloat  (paramLFO4Depth,    "LFO4 Depth", 0.0f, 1.0f, 0.5f);
-    addFloat  (paramLFO4Shape,    "LFO4 Shape", 0.0f, 1.0f, 0.5f);
     addChoice (paramLFO4Dest,    "LFO4 Destination", Parameters::lfoDestinationChoices, 0);
 
     // -- EG1 (Delay / Attack / Release) --
@@ -178,16 +178,12 @@ const juce::StringArray& Parameters::getRandomizableParamIds()
         paramSatDrive,
         paramLFO1Rate,
         paramLFO1Depth,
-        paramLFO1Shape,
         paramLFO2Rate,
         paramLFO2Depth,
-        paramLFO2Shape,
         paramLFO3Rate,
         paramLFO3Depth,
-        paramLFO3Shape,
         paramLFO4Rate,
         paramLFO4Depth,
-        paramLFO4Shape,
         paramEg1Delay,
         paramEg1Attack,
         paramEg1Release,

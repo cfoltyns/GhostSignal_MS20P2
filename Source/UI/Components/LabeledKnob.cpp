@@ -3,11 +3,14 @@
  *
  * (c) 2026 Ghost Signal
  *
- * Description: Responsive rotary knob with proportional label.
- *              Supports optional text value labels at specific positions.
+ * Description: Premium rotary knob with label below.
+ *              Uses the GhostSignalLookAndFeel for rendering.
+ *              Supports optional text value labels at specific positions,
+ *              center text display, LED indicator, and modulation indicator.
  */
 
 #include "LabeledKnob.h"
+#include "../LookAndFeel.h"
 
 LabeledKnob::LabeledKnob (const juce::String& labelText)
 {
@@ -17,9 +20,9 @@ LabeledKnob::LabeledKnob (const juce::String& labelText)
 
     label.setText (labelText, juce::dontSendNotification);
     label.setJustificationType (juce::Justification::centred);
-    label.setColour (juce::Label::textColourId,       juce::Colour (0xFFCCCCCC));
+    label.setColour (juce::Label::textColourId, GhostSignalLookAndFeel::textSecondary);
     label.setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
-    label.setFont (juce::Font (12.0f, juce::Font::bold));
+    label.setFont (GhostSignalLookAndFeel::getKnobLabelFont (60));
     addAndMakeVisible (label);
 
     slider.addListener (this);
@@ -90,7 +93,7 @@ void LabeledKnob::paint (juce::Graphics& g)
             const float tickY1 = centreY + std::sin (angle) * radiusInner;
             const float tickX2 = centreX + std::cos (angle) * radiusOuter;
             const float tickY2 = centreY + std::sin (angle) * radiusOuter;
-            g.setColour (juce::Colour (0x66FFFFFF));
+            g.setColour (GhostSignalLookAndFeel::textSecondary.withAlpha (0.6f));
             g.drawLine (tickX1, tickY1, tickX2, tickY2, 1.2f);
 
             // Position the label slightly outside the arc
@@ -107,8 +110,8 @@ void LabeledKnob::paint (juce::Graphics& g)
                                     textY - textH * 0.5f - 1.0f,
                                     textW + 2.0f, textH + 2.0f, 3.0f);
 
-            g.setColour (juce::Colour (0xFFDDDDDD));
-            g.setFont (juce::Font ((float) juce::jmax (8, sliderBounds.getWidth() / 9), juce::Font::bold));
+            g.setColour (GhostSignalLookAndFeel::textPrimary);
+            g.setFont (GhostSignalLookAndFeel::getKnobLabelFont (sliderBounds.getWidth()));
             g.drawText (textValues[i],
                         juce::Rectangle<float> (textX - textW * 0.5f, textY - textH * 0.5f, textW, textH),
                         juce::Justification::centred, false);
@@ -129,7 +132,7 @@ void LabeledKnob::paint (juce::Graphics& g)
         g.setColour (juce::Colour (0xBB000000));
         g.fillRoundedRectangle (cx - textW * 0.5f - 2.0f, cy - textH * 0.5f - 1.0f,
                                 textW + 4.0f, textH + 2.0f, 3.0f);
-        g.setColour (juce::Colour (0xFFDB4437));
+        g.setColour (GhostSignalLookAndFeel::accent);
         g.setFont (juce::Font (fontSize, juce::Font::bold));
         g.drawText (centerText,
                     juce::Rectangle<float> (cx - textW * 0.5f, cy - textH * 0.5f, textW, textH),
@@ -143,11 +146,11 @@ void LabeledKnob::paint (juce::Graphics& g)
         const float cy = (float) sliderBounds.getCentreY();
         const float ledRadius = 3.0f;
 
-        g.setColour (juce::Colour (0xFFDB4437));
+        g.setColour (GhostSignalLookAndFeel::accent);
         g.fillEllipse (cx - ledRadius, cy - ledRadius, ledRadius * 2.0f, ledRadius * 2.0f);
 
         // Subtle glow
-        g.setColour (juce::Colour (0x40DB4437));
+        g.setColour (GhostSignalLookAndFeel::accent.withAlpha (0.4f));
         g.fillEllipse (cx - ledRadius * 2.0f, cy - ledRadius * 2.0f, ledRadius * 4.0f, ledRadius * 4.0f);
     }
 
@@ -168,7 +171,7 @@ void LabeledKnob::paint (juce::Graphics& g)
         const float dotX = cx + std::cos (angle) * radius;
         const float dotY = cy + std::sin (angle) * radius;
 
-        g.setColour (juce::Colour (0x80DB4437));
+        g.setColour (GhostSignalLookAndFeel::accent.withAlpha (0.8f));
         g.fillEllipse (dotX - 2.5f, dotY - 2.5f, 5.0f, 5.0f);
     }
 }
@@ -192,11 +195,37 @@ void LabeledKnob::resized()
     label.setBounds (0, labelY, totalW, labelH);
 
     const float fontSize = juce::jlimit (10.0f, 15.0f, (float) totalH * 0.17f);
-    label.setFont (juce::Font (fontSize, juce::Font::bold));
+    label.setFont (GhostSignalLookAndFeel::getKnobLabelFont (knobSize));
 }
 
-void LabeledKnob::sliderValueChanged (juce::Slider*)
+void LabeledKnob::sliderValueChanged (juce::Slider* s)
 {
+    // If snap values were configured, snap the slider to the nearest one.
+    // This ensures discrete knobs (e.g. tape delay mode selector) behave
+    // like stepped controls rather than continuous sliders.
+    if (numSnapValues > 0 && s != nullptr)
+    {
+        const float   val    = (float) s->getValue();
+        float         best   = snapValues[0];
+        float         bestDiff = std::abs (val - snapValues[0]);
+
+        for (int i = 1; i < numSnapValues; ++i)
+        {
+            const float diff = std::abs (val - snapValues[i]);
+            if (diff < bestDiff)
+            {
+                bestDiff = diff;
+                best   = snapValues[i];
+            }
+        }
+
+        // Only trigger a notification if we actually need to snap.
+        // sendNotificationSync keeps the SliderAttachment parameter in sync
+        // while the value-change check prevents infinite recursion.
+        if (std::abs (best - val) > 0.001f)
+            s->setValue (best, juce::sendNotification);
+    }
+
     updateCenterTextFromValue();
 }
 
