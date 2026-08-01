@@ -201,7 +201,7 @@ private:
     LabeledKnob    tapeDelayFlutter  { "Flut" };
 
     // ── TAPE DELAY ON/OFF BUTTON ─────────────────────────────────────────────
-    juce::TextButton tapeDelayOnOff { "PWR" };
+    juce::TextButton tapeDelayOnOff { "TAPE" };
 
     // ── RANDOMIZE BUTTON (lockable) ───────────────────────────────────────────
     juce::TextButton randomizeButton { "RANDOMIZE" };

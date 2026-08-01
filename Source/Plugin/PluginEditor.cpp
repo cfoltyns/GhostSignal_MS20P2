@@ -184,15 +184,17 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (tapeDelayWow);
     addAndMakeVisible (tapeDelayFlutter);
 
-    // ── TAPE DELAY ON/OFF BUTTON (circular power button) ──────────────────────
+    // ── TAPE DELAY ON/OFF BUTTON (labeled toggle with LED indicator) ───────────
     addAndMakeVisible (tapeDelayOnOff);
     tapeDelayOnOff.setClickingTogglesState (true);
-    tapeDelayOnOff.setButtonText ("");
+    tapeDelayOnOff.setButtonText ("TAPE");
     tapeDelayOnOff.setColour (juce::TextButton::buttonColourId, GhostSignalLookAndFeel::knobBody);
     tapeDelayOnOff.setColour (juce::TextButton::buttonOnColourId, GhostSignalLookAndFeel::accent);
-    tapeDelayOnOff.setColour (juce::TextButton::textColourOffId, juce::Colours::transparentBlack);
-    tapeDelayOnOff.setColour (juce::TextButton::textColourOnId, juce::Colours::black);
-
+    tapeDelayOnOff.setColour (juce::TextButton::textColourOffId, GhostSignalLookAndFeel::textSecondary);
+    tapeDelayOnOff.setColour (juce::TextButton::textColourOnId, juce::Colours::white);
+    // Use the GhostSignal look and feel for consistent button rendering
+    tapeDelayOnOff.setLookAndFeel (&lnf);
+    tapeDelayOnOff.setAlpha (0.85f);
     // Mode knob: show time division in the center, update as user turns it
     tapeDelayMode.getSlider().onValueChange = [this]
     {
@@ -866,10 +868,13 @@ void PluginEditor::layoutRow2 (int x, int y, int totalW, int totalH,
         placeKnobRow ({ &tapeDelayMode, &tapeDelayFeedback, &tapeDelayMix }, topRow, smallKnobD);
         placeKnobRow ({ &tapeDelayTime, &tapeDelayAge, &tapeDelaySat, &tapeDelayWow, &tapeDelayFlutter }, botRow, smallKnobD);
 
-        const int btnSize = juce::jmin (tapeBounds.getHeight() / 5, 28);
-        tapeDelayOnOff.setBounds (tapeBounds.getRight() - btnSize - 4,
-                                  tapeBounds.getY() + 4,
-                                  btnSize, btnSize);
+        // Tape delay on/off button — labeled toggle positioned in the
+        // title bar area, right-aligned
+        const int btnW = juce::jmin (tapeW, juce::jmax (56, (int) (tapeW * 0.18f)));
+        const int btnH = juce::jlimit (20, 30, (int) (titleH * 0.8f));
+        tapeDelayOnOff.setBounds (tapeBounds.getRight() - btnW - padH,
+                                  y + (titleH - btnH) / 2,
+                                  btnW, btnH);
     }
 
     curX += tapeW + gap;
