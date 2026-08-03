@@ -74,7 +74,7 @@ void LabeledKnob::paint (juce::Graphics& g)
         const float minV = (float) slider.getMinimum();
         const float maxV = (float) slider.getMaximum();
 
-        // Match the rotary arc used in PluginEditor: 1.25π to 2.75π (270° sweep)
+        // Match the rotary arc used in PluginEditor: 1.25 pi to 2.75 pi (270 deg sweep)
         const float rotaryStart = juce::MathConstants<float>::pi * 1.25f;
         const float rotaryEnd   = juce::MathConstants<float>::pi * 2.75f;
 
@@ -133,7 +133,7 @@ void LabeledKnob::paint (juce::Graphics& g)
         g.fillRoundedRectangle (cx - textW * 0.5f - 2.0f, cy - textH * 0.5f - 1.0f,
                                 textW + 4.0f, textH + 2.0f, 3.0f);
         g.setColour (GhostSignalLookAndFeel::accent);
-        g.setFont (juce::Font (fontSize, juce::Font::bold));
+        g.setFont (juce::Font (juce::FontOptions (fontSize, juce::Font::bold)));
         g.drawText (centerText,
                     juce::Rectangle<float> (cx - textW * 0.5f, cy - textH * 0.5f, textW, textH),
                     juce::Justification::centred, false);
@@ -154,7 +154,7 @@ void LabeledKnob::paint (juce::Graphics& g)
         g.fillEllipse (cx - ledRadius * 2.0f, cy - ledRadius * 2.0f, ledRadius * 4.0f, ledRadius * 4.0f);
     }
 
-    // Draw modulation indicator dot (if active) — shows where an LFO is
+    // Draw modulation indicator dot (if active) -- shows where an LFO is
     // currently pushing the knob value, on the rotary arc perimeter.
     if (showModIndicator)
     {
@@ -185,7 +185,7 @@ void LabeledKnob::resized()
     const int gap = juce::jmax (2, (int) (totalH * 0.04f));
     const int knobAreaH = totalH - labelH - gap;
 
-    const int knobSize = juce::jmax (48, juce::jmin (totalW, knobAreaH));
+    const int knobSize = juce::jmax (minKnobSize, juce::jmin (totalW, knobAreaH));
     const int knobX    = (totalW - knobSize) / 2;
     const int knobY    = (knobAreaH - knobSize) / 2;
 

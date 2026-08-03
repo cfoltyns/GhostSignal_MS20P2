@@ -5,7 +5,7 @@ featuring four routable LFOs, interactive ADSR envelope displays, and a distinct
 logo identity.
 
 Platforms: Windows x64, macOS Intel/Apple Silicon, Linux x64
-Formats: VST3, AU, CLAP, Standalone
+Formats: VST3, AU, Standalone
 Framework: JUCE + CMake + C++20
 
 ## Prerequisites
@@ -15,21 +15,35 @@ Framework: JUCE + CMake + C++20
 - Git
 - JUCE 8 (vendored locally in ThirdParty/JUCE)
 
-## Quick Start (macOS — Audio Unit)
+## Quick Start (macOS)
 
-On macOS the **Audio Unit (AU)** wrapper needs no external SDK — it links
-against the system AudioUnit/AVFAudio frameworks that ship with the macOS SDK
-(available via the Xcode Command Line Tools). Build just the AU target to
-avoid the VST3 SDK requirement entirely:
+The default build produces **VST3**, **AU**, and **Standalone** targets:
 
 ```sh
 cd "/Users/connor/Desktop/Synth development/GhostSignal_MS20P2"
 
-# Configure (Release; uses the vendored JUCE 8)
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+# Configure (defaults to Release; uses the vendored JUCE 8)
+cmake -S . -B build
 
+# Build all formats
+cmake --build build
+```
+
+Build artifacts are in `build/GhostSignalMS20P_artefacts/Release/`:
+- **Standalone**: `Standalone/GhostSignalMS20P.app`
+- **AU**: `AU/GhostSignalMS20P.component`
+- **VST3**: `VST3/GhostSignalMS20P.vst3`
+
+> **Note:** The standalone app is ad-hoc signed by JUCE's CMake. On first launch,
+> right-click (Control-click) the app and choose **Open** to bypass Gatekeeper,
+> then click **Open** in the dialog that appears. Subsequent launches work
+> normally from Finder or Launchpad.
+
+To build just the AU (links against system frameworks, no external SDK needed):
+
+```sh
 # Build only the AU target
-cmake --build build --target GhostSignalMS20P_AU --config Release
+cmake --build build --target GhostSignalMS20P_AU
 
 # Install into the user AU component directory
 cp -R build/GhostSignalMS20P_artefacts/Release/AU/GhostSignalMS20P.component \
@@ -46,10 +60,6 @@ and is ready to load in Logic Pro, GarageBand, and other AU hosts.
 > passes `auval` out of the box. Loading it in a DAW that enforces
 > Gatekeeper/notarisation (e.g. for App Store/distribution) requires signing
 > with an Apple Developer ID.
->
-> **Note (VST3 on macOS):** Building the `VST3` target additionally requires
-> Steinberg's VST3 SDK. Build only the `GhostSignalMS20P_AU` target (as shown
-> above) to sidestep that dependency.
 
 ## Quick Start (Windows)
 
@@ -65,14 +75,14 @@ cmake --build build --config Release
 
 ## Outputs
 
-- VST3: build\GhostSignalMS20P_artefacts\Release\VST3\Ghost Signal MS20P.vst3
-- Standalone: build\GhostSignalMS20P_artefacts\Release\Standalone\Ghost Signal MS20P.exe
+- VST3: build\GhostSignalMS20P_artefacts\Release\VST3\GhostSignalMS20P.vst3
+- Standalone: build\GhostSignalMS20P_artefacts\Release\Standalone\GhostSignalMS20P.exe
 
 ## Run the Standalone App
 
 ```powershell
 cd build\GhostSignalMS20P_artefacts\Release\Standalone
-. "Ghost Signal MS20P.exe"
+. "GhostSignalMS20P.exe"
 ```
 
 ## Install the VST3

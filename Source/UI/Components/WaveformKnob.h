@@ -21,6 +21,9 @@ public:
     void setLabel (const juce::String& text);
     void setSnapToValues (const float* values, int numValues);
 
+    // Callback when waveform value changes
+    std::function<void()> onWaveformChanged;
+
     void paint (juce::Graphics& g) override;
     void resized() override;
 
@@ -33,6 +36,12 @@ private:
 
         void paint (juce::Graphics& g) override;
         void drawWaveformIcon (juce::Graphics& g, juce::Rectangle<float> area, int waveIndex) const;
+
+        // Suppress numeric value text so the waveform icon is visible in the center
+        juce::String getTextFromValue (double value) override { return {}; }
+
+    private:
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WaveformSlider)
     };
 
     WaveformSlider slider;

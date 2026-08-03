@@ -92,22 +92,22 @@ float GhostSignalLookAndFeel::getKnobFontSize (int knobDiameter)
 
 juce::Font GhostSignalLookAndFeel::getSectionTitleFont (int panelHeight)
 {
-    return Font (getSectionTitleFontSize (panelHeight), Font::bold);
+    return Font (FontOptions (getSectionTitleFontSize (panelHeight), Font::bold));
 }
 
 juce::Font GhostSignalLookAndFeel::getParamLabelFont (int widgetHeight)
 {
-    return Font (getParamLabelFontSize (widgetHeight), Font::bold);
+    return Font (FontOptions (getParamLabelFontSize (widgetHeight), Font::bold));
 }
 
 juce::Font GhostSignalLookAndFeel::getValueFont (int widgetHeight)
 {
-    return Font (getValueFontSize (widgetHeight), Font::plain);
+    return Font (FontOptions (getValueFontSize (widgetHeight), Font::plain));
 }
 
 juce::Font GhostSignalLookAndFeel::getKnobLabelFont (int knobDiameter)
 {
-    return Font (getKnobFontSize (knobDiameter), Font::bold);
+    return Font (FontOptions (getKnobFontSize (knobDiameter), Font::bold));
 }
 
 // ─── Rotary slider rendering ──────────────────────────────────────────────────
@@ -229,7 +229,7 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
     {
         const float fontSize = jlimit (7.0f, 11.0f, centerR * 1.4f);
         g.setColour (textPrimary);
-        g.setFont (Font (fontSize, Font::bold));
+        g.setFont (Font (FontOptions (fontSize, Font::bold)));
         g.drawText (slider.getTextFromValue (slider.getValue()),
                     Rectangle<float> (cx - centerR, cy - centerR, centerR * 2.0f, centerR * 2.0f),
                     Justification::centred, false);

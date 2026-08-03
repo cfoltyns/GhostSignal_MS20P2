@@ -29,6 +29,11 @@ public:
     void setLedActive (bool active) { ledActive = active; repaint(); }
     bool isLedActive() const { return ledActive; }
 
+    // Override the minimum slider (knob) diameter. Default is 48px.
+    // Useful for cramped spaces where a smaller knob is acceptable.
+    void setMinKnobSize (int minSize) { minKnobSize = minSize; }
+    int getMinKnobSize() const { return minKnobSize; }
+
     void setCenterText (const juce::String& text) { centerText = text; repaint(); }
     void clearCenterText() { centerText = {}; repaint(); }
     void setAutoCenterText (bool autoUpdate) { autoCenterText = autoUpdate; updateCenterTextFromValue(); }
@@ -49,6 +54,7 @@ private:
     juce::Slider slider;
     juce::Label label;
     float labelHeightProportion { 0.22f };
+    int minKnobSize { 48 };
 
     juce::StringArray textValues;
     float textValuePositions[8];

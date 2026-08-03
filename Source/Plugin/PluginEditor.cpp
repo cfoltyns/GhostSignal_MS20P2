@@ -8,10 +8,11 @@
  *              getWidth()/getHeight() ratios.
  *
  * Signal-flow layout:
- *   Header: Logo | Randomize | Master Volume
+ *   Header: Logo | Randomize
  *   Row 1:  VCO1 | VCO2 | Sub/Noise | Mixer | Filter
  *   Row 2:  VCA Env | VCF Env
  *   Row 3:  Glide/Voice | LFO1 | LFO2 | LFO3 | LFO4 | Tape Delay | Amp
+ *   Bottom-right: Master Volume
  */
 
 #include "PluginEditor.h"
@@ -34,27 +35,14 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (logoComponent);
     logoComponent.setText ("ghost signal MS20P");
 
-    masterVolume.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-    masterVolume.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 16);
-    addAndMakeVisible (masterVolume);
-
-    addAndMakeVisible (masterVolLabel);
-    masterVolLabel.setText ("MASTER", juce::dontSendNotification);
-    masterVolLabel.setJustificationType (juce::Justification::centred);
-    masterVolLabel.setColour (juce::Label::textColourId, GhostSignalLookAndFeel::textSecondary);
-    masterVolLabel.setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
-    masterVolLabel.setFont (GhostSignalLookAndFeel::getParamLabelFont (20));
-
     // ── OSC1 ─────────────────────────────────────────────────────────────────
     addAndMakeVisible (osc1Panel);
     addAndMakeVisible (osc1Waveform);
     addAndMakeVisible (osc1PulseWidth);
     addAndMakeVisible (osc1Octave);
     addAndMakeVisible (osc1Tune);
-    {
-        const float wavePositions[] = { 0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f };
-        osc1Waveform.setSnapToValues (wavePositions, 7);
-    }
+    osc1Waveform.addItemList (Parameters::oscWaveformChoices, 1);
+    osc1Waveform.onChange = [this] { updatePulseWidthVisibility(); };
 
     // ── OSC2 ─────────────────────────────────────────────────────────────────
     addAndMakeVisible (osc2Panel);
@@ -62,10 +50,8 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (osc2PulseWidth);
     addAndMakeVisible (osc2Octave);
     addAndMakeVisible (osc2Tune);
-    {
-        const float wavePositions[] = { 0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f };
-        osc2Waveform.setSnapToValues (wavePositions, 7);
-    }
+    osc2Waveform.addItemList (Parameters::oscWaveformChoices, 1);
+    osc2Waveform.onChange = [this] { updatePulseWidthVisibility(); };
 
     // ── SUB / NOISE ───────────────────────────────────────────────────────────
     addAndMakeVisible (subPanel);
@@ -215,12 +201,11 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     // ── Parameter attachments ─────────────────────────────────────────────────
     auto& apvts = audioProcessor.getAPVTS();
 
-    masterVolAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramMasterVolume, masterVolume);
-    osc1WaveAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramOsc1Waveform, osc1Waveform.getSlider());
+    osc1WaveAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramOsc1Waveform, osc1Waveform);
     osc1PulseWidthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramOsc1PulseWidth, osc1PulseWidth.getSlider());
     osc1OctaveAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramOsc1Octave,   osc1Octave.getSlider());
     osc1TuneAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramOsc1Tune,     osc1Tune.getSlider());
-    osc2WaveAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramOsc2Waveform, osc2Waveform.getSlider());
+    osc2WaveAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramOsc2Waveform, osc2Waveform);
     osc2PulseWidthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramOsc2PulseWidth, osc2PulseWidth.getSlider());
     osc2OctaveAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramOsc2Octave,   osc2Octave.getSlider());
     osc2TuneAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramOsc2Tune,     osc2Tune.getSlider());
@@ -320,11 +305,12 @@ PluginEditor::PluginEditor (PluginProcessor& p)
         slider.setMouseDragSensitivity (120);
     };
 
-    setKnobSensitivity (masterVolume);
     setKnobSensitivity (osc1PulseWidth.getSlider());
+    osc1PulseWidth.setMinKnobSize (40);
     setKnobSensitivity (osc1Octave.getSlider());
     setKnobSensitivity (osc1Tune.getSlider());
     setKnobSensitivity (osc2PulseWidth.getSlider());
+    osc2PulseWidth.setMinKnobSize (40);
     setKnobSensitivity (osc2Octave.getSlider());
     setKnobSensitivity (osc2Tune.getSlider());
     setKnobSensitivity (subOctave.getSlider());
@@ -405,10 +391,11 @@ void PluginEditor::paint (juce::Graphics& g)
     }
 
     // Vertical dividers between major sections (subtle)
+    // Aligned to the VCO1 | VCO2 | Sub | Mixer | Filter | Spacer boundaries
     {
         g.setColour (juce::Colour (0x08FFFFFF));
-        g.drawVerticalLine (static_cast<int> (w * 0.36f), 0.0f, h);
-        g.drawVerticalLine (static_cast<int> (w * 0.72f), 0.0f, h);
+        g.drawVerticalLine (static_cast<int> (w * 0.43f), 0.0f, h);
+        g.drawVerticalLine (static_cast<int> (w * 0.86f), 0.0f, h);
     }
 
     // Top edge highlight
@@ -455,7 +442,7 @@ void PluginEditor::resized()
     const int gap      = juce::jmax (6,  (int) (w * 0.006f));
     const int headerH  = juce::jmax (36, (int) (h * 0.055f));
 
-    // Large knob for master volume and important controls
+    // Large knob for important controls (filter cutoff)
     const int largeKnobD = juce::jlimit (56, 100, (int) (w * 0.065f));
     // Medium knob for standard controls
     const int knobD      = juce::jlimit (44, 88, (int) (w * 0.055f));
@@ -467,18 +454,20 @@ void PluginEditor::resized()
     const int contentTop = margin + headerH + margin;
     const int contentH   = h - contentTop - margin;
 
-    // Three-row split: 42% / 20% / 38% — with more room for env row
+    // Three-row split: 42% / 20% / 38%
     const int row1H   = (int) (contentH * 0.42f);
     const int rowGap  = margin;
     const int envRowH = (int) (contentH * 0.20f);
-    const int row2H   = contentH - row1H - envRowH - 2 * rowGap;
+    const int row2H   = contentH - row1H - envRowH - 2 * rowGap - margin;
     const int contentW = w - 2 * margin;
+
+    // Update PW visibility before layout so waveform/PW positioning is correct
+    updatePulseWidthVisibility();
 
     layoutRow1 (margin, contentTop, contentW, row1H, knobD, smallKnobD, largeKnobD);
     layoutEnvelopeRow (margin, contentTop + row1H + rowGap, contentW, envRowH, knobD);
     layoutRow2 (margin, contentTop + row1H + envRowH + 2 * rowGap, contentW, row2H, knobD, smallKnobD);
 
-    updatePulseWidthVisibility();
     syncEnvDisplays();
 }
 
@@ -490,20 +479,10 @@ void PluginEditor::layoutHeaderBar (int margin, int headerH, int largeKnobD)
 {
     const int w = getWidth();
 
-    // Master volume knob: right-aligned in header (large)
-    const int volSize    = largeKnobD;
-    const int volLabelH  = 16;
-    const int volTotalH  = volSize + volLabelH;
-    const int volX       = w - margin - volSize;
-    const int volCentreY = margin + (headerH - volTotalH) / 2;
-
-    masterVolume.setBounds  (volX, volCentreY, volSize, volSize);
-    masterVolLabel.setBounds (volX - 6, volCentreY + volSize + 1, volSize + 12, volLabelH);
-
-    // Randomize button: between title and master volume
+    // Randomize button: right-aligned in header
     const int btnW = juce::jmax (80, (int) (w * 0.07f));
     const int btnH = juce::jmax (22, (int) (headerH * 0.5f));
-    const int btnX = volX - margin - btnW;
+    const int btnX = w - margin - btnW;
     const int btnY = margin + (headerH - btnH) / 2;
     randomizeButton.setBounds (btnX, btnY, btnW, btnH);
 
@@ -513,7 +492,7 @@ void PluginEditor::layoutHeaderBar (int margin, int headerH, int largeKnobD)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// layoutRow1() — OSC | SUB/NOISE | MIXER | FILTER
+// layoutRow1() — VCO1 | VCO2 | Sub/Noise | Mixer | Filter
 // ─────────────────────────────────────────────────────────────────────────────
 
 void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
@@ -524,64 +503,108 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
     const int mediumKnobD = knobD;
     const int gap = juce::jmax (6, (int) (totalW * 0.006f));
 
-    // Column widths — more breathing room between sections
-    const int oscW    = (int) (totalW * 0.24f);
-    const int subW    = (int) (totalW * 0.10f);
-    const int mixerW  = (int) (totalW * 0.16f);
-    const int filterW = (int) (totalW * 0.26f);
-    const int spacerW = totalW - oscW - subW - mixerW - filterW - 4 * gap;
-
-    // Half-height for OSC panels (stacked vertically)
-    const int oscHalf = (totalH - gap) / 2;
+    // Column widths — VCO1 and VCO2 are now separate columns with a gap
+    // between them for better spacing and visual breathing room.
+    const int vco1W   = (int) (totalW * 0.15f);
+    const int vco2W   = (int) (totalW * 0.15f);
+    const int subW    = (int) (totalW * 0.11f);
+    const int mixerW  = (int) (totalW * 0.17f);
+    const int filterW = (int) (totalW * 0.25f);
+    const int spacerW = totalW - vco1W - vco2W - subW - mixerW - filterW - 5 * gap;
 
     int curX = x;
 
-    // ── OSC1 (top half) — Wave knob + Octave/Tune row ────────────────────────
+    // ── VCO1 (own column) — Wave ComboBox at top, Octave/Tune below ───────
     {
-        const R osc1Bounds (curX, y, oscW, oscHalf);
+        const R osc1Bounds (curX, y, vco1W, totalH);
         osc1Panel.setBounds (osc1Bounds);
 
         const int titleH  = osc1Panel.getTitleAreaHeight();
-        const int padH    = juce::jmax (4, (int) (oscHalf * 0.04f));
+        const int padH    = juce::jmax (6, (int) (totalH * 0.035f));
 
-        // Waveform knob + Octave + Tune in one row
-        const int knobAreaTop = titleH + padH;
-        const int knobRowH    = (int) ((oscHalf - knobAreaTop - padH) * 0.55f);
-        const R knobArea (curX + padH, y + knobAreaTop,
-                          oscW - 2 * padH, knobRowH);
-        placeKnobRow ({ &osc1Waveform, &osc1Octave, &osc1Tune }, knobArea, mediumKnobD);
+        // PW knob is smaller to fit
+        const int pwKnobD   = juce::jlimit (32, 40, (int) (mediumKnobD * 0.70f));
+        const int pwWidgetH = juce::jmax (60, pwKnobD + 12);
 
-        // PW knob centered below (hidden unless Pulse waveform)
-        const int pwRowTop = knobAreaTop + knobRowH + padH;
-        const int pwRowH   = oscHalf - pwRowTop - padH;
-        const int pwW      = juce::jmin (oscW - 2 * padH, (int) (mediumKnobD * 1.3f));
-        const int pwX      = curX + (oscW - pwW) / 2;
-        osc1PulseWidth.setBounds (pwX, y + pwRowTop, pwW, pwRowH);
+        // Row 1: Waveform ComboBox (left), or Waveform + PW side by side
+        const int row1Top = titleH + padH;
+        const int row1H   = juce::jmax (66, (int) ((totalH - row1Top - padH) * 0.55f));
+        const int comboH  = juce::jmax (18, (int) (row1H * 0.30f));
+
+        const bool pwVisible = osc1PulseWidth.isVisible();
+
+        if (pwVisible)
+        {
+            // Waveform ComboBox shifts left, PW appears to its right
+            const int waveW = vco1W - 2 * padH - pwWidgetH - padH;
+            osc1Waveform.setBounds (curX + padH, y + row1Top + (row1H - comboH) / 2,
+                                  waveW, comboH);
+
+            const int pwX = curX + vco1W - padH - pwWidgetH;
+            const int pwY = y + row1Top + (row1H - pwWidgetH) / 2;
+            osc1PulseWidth.setBounds (pwX, pwY, pwWidgetH, pwWidgetH);
+        }
+        else
+        {
+            // Waveform ComboBox full width
+            osc1Waveform.setBounds (curX + padH, y + row1Top + (row1H - comboH) / 2,
+                                  vco1W - 2 * padH, comboH);
+        }
+
+        // Row 2: Octave and Tune
+        const int row2Top = row1Top + row1H + padH;
+        const int row2H   = totalH - row2Top - padH;
+        const R row2Area (curX + padH, y + row2Top, vco1W - 2 * padH, row2H);
+        placeKnobRow ({ &osc1Octave, &osc1Tune }, row2Area, mediumKnobD);
     }
 
-    // ── OSC2 (bottom half) ───────────────────────────────────────────────────
+    curX += vco1W + gap;
+
+    // ── VCO2 (own column to the right of VCO1) ────────────────────────────────────
     {
-        const int osc2Y = y + oscHalf + gap;
-        const R osc2Bounds (curX, osc2Y, oscW, oscHalf);
+        const R osc2Bounds (curX, y, vco2W, totalH);
         osc2Panel.setBounds (osc2Bounds);
 
         const int titleH  = osc2Panel.getTitleAreaHeight();
-        const int padH    = juce::jmax (4, (int) (oscHalf * 0.04f));
+        const int padH    = juce::jmax (6, (int) (totalH * 0.035f));
 
-        const int knobAreaTop = titleH + padH;
-        const int knobRowH    = (int) ((oscHalf - knobAreaTop - padH) * 0.55f);
-        const R knobArea (curX + padH, osc2Y + knobAreaTop,
-                          oscW - 2 * padH, knobRowH);
-        placeKnobRow ({ &osc2Waveform, &osc2Octave, &osc2Tune }, knobArea, mediumKnobD);
+        // PW knob is smaller to fit
+        const int pwKnobD   = juce::jlimit (32, 40, (int) (mediumKnobD * 0.70f));
+        const int pwWidgetH = juce::jmax (60, pwKnobD + 12);
 
-        const int pwRowTop = knobAreaTop + knobRowH + padH;
-        const int pwRowH   = oscHalf - pwRowTop - padH;
-        const int pwW      = juce::jmin (oscW - 2 * padH, (int) (mediumKnobD * 1.3f));
-        const int pwX      = curX + (oscW - pwW) / 2;
-        osc2PulseWidth.setBounds (pwX, osc2Y + pwRowTop, pwW, pwRowH);
+        // Row 1: Waveform ComboBox (left), or Waveform + PW side by side
+        const int row1Top = titleH + padH;
+        const int row1H   = juce::jmax (66, (int) ((totalH - row1Top - padH) * 0.55f));
+        const int comboH  = juce::jmax (18, (int) (row1H * 0.30f));
+
+        const bool pwVisible = osc2PulseWidth.isVisible();
+
+        if (pwVisible)
+        {
+            // Waveform ComboBox shifts left, PW appears to its right
+            const int waveW = vco2W - 2 * padH - pwWidgetH - padH;
+            osc2Waveform.setBounds (curX + padH, y + row1Top + (row1H - comboH) / 2,
+                                  waveW, comboH);
+
+            const int pwX = curX + vco2W - padH - pwWidgetH;
+            const int pwY = y + row1Top + (row1H - pwWidgetH) / 2;
+            osc2PulseWidth.setBounds (pwX, pwY, pwWidgetH, pwWidgetH);
+        }
+        else
+        {
+            // Waveform ComboBox full width
+            osc2Waveform.setBounds (curX + padH, y + row1Top + (row1H - comboH) / 2,
+                                  vco2W - 2 * padH, comboH);
+        }
+
+        // Row 2: Octave and Tune
+        const int row2Top = row1Top + row1H + padH;
+        const int row2H   = totalH - row2Top - padH;
+        const R row2Area (curX + padH, y + row2Top, vco2W - 2 * padH, row2H);
+        placeKnobRow ({ &osc2Octave, &osc2Tune }, row2Area, mediumKnobD);
     }
 
-    curX += oscW + gap;
+    curX += vco2W + gap;
 
     // ── SUB + NOISE (stacked vertically) ─────────────────────────────────────
     {
@@ -617,7 +640,7 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
 
     curX += subW + gap;
 
-    // ── MIXER (VCO1 Lvl + VCO2 Lvl on top row, then Sub/Drive/LPF Drive column) ─
+    // ── MIXER (2-2-1 layout: VCO1/VCO2 top, Sub/Drive middle, LPF Drive bottom) ─
     {
         const R mixerBounds (curX, y, mixerW, totalH);
         mixerPanel.setBounds (mixerBounds);
@@ -626,18 +649,21 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
         const int padH   = juce::jmax (4, (int) (totalH * 0.04f));
         const int innerH = totalH - titleH - padH * 2;
 
-        // Top row: VCO1 Lvl and VCO2 Lvl side by side, slightly bigger
+        // Three rows: 2 knobs, 2 knobs, 1 knob
+        const int rowH = (innerH - 2 * gap) / 3;
         const int bigKnobD = (int) (smallKnobD * 1.15f);
-        const int topRowH  = juce::jmin (bigKnobD + 20, (int) (innerH * 0.30f));
-        const R topRowArea (curX + padH, y + titleH + padH,
-                            mixerW - 2 * padH, topRowH);
-        placeKnobRow ({ &mixerVco1Level, &mixerVco2Level }, topRowArea, bigKnobD);
 
-        // Bottom column: Sub Lvl, Drive, LPF Drive
-        const int botY = y + titleH + padH + topRowH + padH;
-        const int botH = innerH - topRowH - padH;
-        const R botArea (curX + padH, botY, mixerW - 2 * padH, botH);
-        placeKnobColumn ({ &mixerSubLevel, &mixerDrive, &lpfDrive }, botArea, smallKnobD);
+        // Top row: VCO1 Lvl, VCO2 Lvl
+        const R topRow (curX + padH, y + titleH + padH, mixerW - 2 * padH, rowH);
+        placeKnobRow ({ &mixerVco1Level, &mixerVco2Level }, topRow, bigKnobD);
+
+        // Middle row: Sub Lvl, Drive
+        const R midRow (curX + padH, y + titleH + padH + rowH + gap, mixerW - 2 * padH, rowH);
+        placeKnobRow ({ &mixerSubLevel, &mixerDrive }, midRow, smallKnobD);
+
+        // Bottom row: LPF Drive (centered)
+        const R botRow (curX + padH, y + titleH + padH + 2 * (rowH + gap), mixerW - 2 * padH, rowH);
+        placeKnobRow ({ &lpfDrive }, botRow, smallKnobD);
     }
 
     curX += mixerW + gap;
@@ -930,8 +956,11 @@ void PluginEditor::placeKnobRow (std::initializer_list<juce::Component*> knobs,
         return;
 
     const int cellW = area.getWidth() / count;
-    const int knobWidgetH = juce::jmin (area.getHeight(),
-                                        (int) (knobD * 1.35f));
+    // Minimum widget height is 66px to prevent clipping: LabeledKnob has a
+    // minimum internal knob size of 48px plus a 16px label and 2px gap.
+    const int knobWidgetH = juce::jmax (66,
+                                        juce::jmin (area.getHeight(),
+                                                    (int) (knobD * 1.5f)));
 
     int i = 0;
     for (auto* knob : knobs)
@@ -959,7 +988,11 @@ void PluginEditor::placeKnobColumn (std::initializer_list<juce::Component*> knob
         return;
 
     const int cellH = area.getHeight() / count;
-    const int knobWidgetH = juce::jmin (cellH, (int) (knobD * 1.35f));
+    // Minimum widget height is 66px to prevent clipping: LabeledKnob has a
+    // minimum internal knob size of 48px plus a 16px label and 2px gap.
+    const int knobWidgetH = juce::jmax (66,
+                                        juce::jmin (cellH,
+                                                    (int) (knobD * 1.5f)));
     const int knobYOffset = (cellH - knobWidgetH) / 2;
     // Center horizontally within the cell as a square
     const int knobXOffset = (area.getWidth() - knobWidgetH) / 2;
@@ -981,13 +1014,11 @@ void PluginEditor::placeKnobColumn (std::initializer_list<juce::Component*> knob
 
 void PluginEditor::updatePulseWidthVisibility()
 {
-    // VCO1 waveform slider value 3 = Pulse
-    const float osc1Wave = osc1Waveform.getSlider().getValue();
-    const bool osc1ShowPW = (std::abs (osc1Wave - 3.0f) < 0.5f);
+    // Pulse is the 4th waveform choice (ComboBox ID 4, since items start at 1)
+    const bool osc1ShowPW = (osc1Waveform.getSelectedId() == 4);
     osc1PulseWidth.setVisible (osc1ShowPW);
 
-    const float osc2Wave = osc2Waveform.getSlider().getValue();
-    const bool osc2ShowPW = (std::abs (osc2Wave - 3.0f) < 0.5f);
+    const bool osc2ShowPW = (osc2Waveform.getSelectedId() == 4);
     osc2PulseWidth.setVisible (osc2ShowPW);
 }
 

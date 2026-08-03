@@ -1,60 +1,59 @@
-# GhostSignal MS20P - Implementation Plan
+# GhostSignal MS20P - VCO Layout & Waveform Icon Fixes
 
-## 1. Fix CMakeLists.txt source list corruption
-- [x] Fix broken line 52 (literal \r\n characters corrupting source list)
+## 1. Add `setMinKnobSize` to LabeledKnob
+- [x] Add `minKnobSize` member and `setMinKnobSize()` method to LabeledKnob.h
+- [x] Use `minKnobSize` in LabeledKnob.cpp instead of hardcoded 48
 
-## 2. Expand LFO destination choices in Parameters
-- [x] Update lfoDestinationChoices to cover: pitch, PWM, tuning, oscillator levels, filter cutoff, filter res, amp gain, pan
+## 2. Split VCO1/VCO2 into separate columns in layoutRow1
+- [x] Replace shared oscW column with separate vco1W and vco2W columns
+- [x] Add a gap between VCO1 and VCO2 sections
+- [x] Update column widths proportionally (filterW reduced from 26% to 24%)
 
-## 3. Wire all 4 LFOs in AudioEngine.cpp
-- [x] Add LFO2, LFO3, LFO4 params (rate, depth, waveform, shape, dest)
-- [x] Add LFO1 waveform, shape, dest wiring (currently missing)
-- [x] Add waveform choice-to-enum mapping helper
+## 3. Increase top padding for VCO1/VCO2 knobs
+- [x] Increase `topPad` from `titleH * 0.2` to `titleH * 0.35`
+- [x] Reduce PW knob size (diameter: 40-48 → 32-40, widget height: 66 → 60)
+- [x] Call `setMinKnobSize(40)` on PW knobs in constructor
 
-## 4. Add LFO destination fields to VoiceParams
-- [x] Add lfo1Dest-lfo4Dest integer fields to VoiceParams struct
+## 4. Build and verify
+- [x] Build the project (all targets: SharedCode, Standalone, AU, VST3)
 
-## 5. Process all 4 LFOs with destination routing in Voice.cpp
-- [x] Process lfo3 and lfo4 (currently skipped)
-- [x] Replace hardcoded LFO1→pitch with per-LFO destination routing
-- [x] Route to: pitch, filter cutoff, tuning, oscillator gain, PWM, pan, amp gain, resonance
+## 5. Fix waveform icons (suppress numeric text)
+- [x] Override `getTextFromValue()` in WaveformSlider to return empty string
+- [x] This prevents the GhostSignalLookAndFeel from drawing numeric value text
+  that was obscuring the waveform icon in the center of the knob
 
-## 6. Create LogoComponent
-- [x] Create LogoComponent.h/.cpp with graphical "GS" monogram logo
-- [x] Add circuit-trace visual effect and gradient styling
+## 6. Move master volume to bottom right
+- [x] Remove master volume from header bar (layoutHeaderBar)
+- [x] Position master volume at bottom-right corner in resized()
+- [x] Reduce Row 2 height to make room for the master volume knob
+- [x] Update header comment to reflect new layout
 
-## 7. Improve EnvDisplay
-- [x] Rewrite EnvDisplay to have consistent point positions matching drawn path
-- [x] Clean up drag logic and visual rendering
+## 7. Space out top row (reduce right spacer)
+- [x] Increase column widths: vco1W 14%→15%, vco2W 14%→15%, subW 10%→11%,
+      mixerW 16%→17%, filterW 24%→25%
+- [x] This reduces the right-side spacer from ~22% to ~17%
+- [x] Update paint() divider positions to 0.43f and 0.86f to match new boundaries
 
-## 8. Integrate EnvDisplay into PluginEditor
-- [x] Add two EnvDisplay components (VCA ENV and VCF ENV)
-- [x] Wire knob-to-display (slider changes update display)
-- [x] Wire display-to-knob (dragging points updates parameters)
-- [x] Position EnvDisplay in layout alongside knobs
+## 8. Final build and verify
+- [x] Build the project (all targets: SharedCode, Standalone, AU, VST3)
 
-## 9. Add LFO2-LFO4 UI controls to PluginEditor
-- [x] Add LFO2, LFO3, LFO4 panels with Waveform, Shape, Rate, Depth, Dest controls
-- [x] Add LfoDisplay waveform visualization for each LFO
-- [x] Add parameter attachments for all new controls
-- [x] Redesign bottom row layout to accommodate 4 LFOs
+## 9. VCO1/VCO2 layout redesign (waveform centered, octave/tune below)
+- [x] Waveform knob centered at top of VCO1/VCO2 panels
+- [x] When Pulse waveform selected, waveform shifts left and PW knob appears to the right
+- [x] Octave and Tune moved to a second row below the waveform/PW row
 
-## 10. Integrate LogoComponent into PluginEditor
-- [x] Replace text title label with LogoComponent in header
-- [x] Position logo in header bar
+## 10. Mixer layout redesign (2-2-1)
+- [x] Top row: VCO1 Lvl, VCO2 Lvl (2 knobs)
+- [x] Middle row: Sub Lvl, Drive (2 knobs)
+- [x] Bottom row: LPF Drive (1 knob, centered)
 
-## 11. Update timerCallback for EnvDisplay sync
-- [x] Sync EnvDisplay values from parameter changes in timer
+## 11. Fix CMake build (VST3 + AU not being built)
+- [x] Removed unsupported `CLAP` from `FORMATS` (not a valid format in JUCE 8.0.15)
+- [x] Removed broken post-build copy section (`if (JucePlugin_Build_Standalone)` was always false — it's a compile definition, not a CMake variable; `JUCE_SIGNED_COPY_FILE_PATH` was not a real JUCE property)
+- [x] Added default `CMAKE_BUILD_TYPE=Release` so artifacts always land in `GhostSignalMS20P_artefacts/Release/`
+- [x] Added recommended JUCE link flags (`juce_recommended_config_flags`, `juce_recommended_lto_flags`, `juce_recommended_warning_flags`)
+- [x] Removed stray `c` file (untracked duplicate of AudioEngine.cpp)
+- [x] Verified clean build produces all three formats: Standalone, AU, VST3
+- [x] Fixed standalone app "damaged or incomplete" error (executable was missing from app bundle — clean rebuild fixed it)
+- [x] Added Gatekeeper first-launch note to README for standalone app
 
-## 12. Update README
-- [x] Update controls documentation
-
-## 13. Fix mode knob in tape delay section
-- [x] Fix tapeDelayMode type mismatch: declared as juce::ComboBox in PluginEditor.h but used as LabeledKnob
-- [x] Change tapeDelayMode declaration from juce::ComboBox to LabeledKnob { "Mode" }
-- [x] Add snapping behavior to LabeledKnob::sliderValueChanged for discrete mode selection
-- [x] Verify mode knob methods compile (setSnapToValues, setTextValues, setAutoCenterText, getSlider, setCenterText)
-
-## 14. Build and verify
-- [x] Build the project
-- [x] Verify compilation succeeds (all targets: SharedCode, Standalone, AU, VST3)

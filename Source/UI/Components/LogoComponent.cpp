@@ -29,7 +29,7 @@ void LogoComponent::paint (juce::Graphics& g)
 
     // Subtle drop shadow for depth
     g.setColour (juce::Colours::black.withAlpha (0.4f));
-    g.setFont (juce::Font (fontSize, juce::Font::bold));
+    g.setFont (juce::Font (juce::FontOptions (fontSize, juce::Font::bold)));
     g.drawText (displayName,
                 juce::Rectangle<float> (b.getX() + 1.0f, b.getY() + 1.0f, b.getWidth(), b.getHeight()),
                 juce::Justification::centredLeft, false);

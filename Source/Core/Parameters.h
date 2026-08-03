@@ -137,6 +137,9 @@ public:
     inline static constexpr float masterVolumeMax = 1.0f;
     inline static constexpr float masterVolumeDefault = 0.8f;
 
+    // OSC waveform options
+    static const juce::StringArray oscWaveformChoices;
+
     // LFO waveform options
     static const juce::StringArray lfoWaveformChoices;
     // LFO destination options (routing targets)

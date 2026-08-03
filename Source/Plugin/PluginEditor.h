@@ -8,7 +8,7 @@
  *              getWidth()/getHeight() ratios.
  *
  * Signal-flow layout:
- *   Header: Logo | Randomize | Master Volume
+ *   Header: Logo | Randomize
  *   Row 1:  VCO1 | VCO2 | Sub/Noise | Mixer | Filter
  *   Row 2:  VCA Env | VCF Env
  *   Row 3:  Glide/Voice | LFO1 | LFO2 | LFO3 | LFO4 | Tape Delay | Amp
@@ -21,7 +21,6 @@
 #include "../UI/LookAndFeel.h"
 #include "../UI/Components/Panel.h"
 #include "../UI/Components/LabeledKnob.h"
-#include "../UI/Components/WaveformKnob.h"
 #include "../UI/Components/LogoComponent.h"
 #include "../UI/Components/EnvDisplay.h"
 #include "../UI/Components/LfoDisplay.h"
@@ -88,19 +87,17 @@ private:
 
     // ── Header ────────────────────────────────────────────────────────────────
     LogoComponent logoComponent;
-    juce::Slider masterVolume;
-    juce::Label  masterVolLabel;
 
     // ── OSC 1 ─────────────────────────────────────────────────────────────────
     Panel          osc1Panel     { "VCO1" };
-    WaveformKnob   osc1Waveform  { "WAVE" };
+    juce::ComboBox osc1Waveform;
     LabeledKnob    osc1PulseWidth{ "PW" };
     LabeledKnob    osc1Octave    { "Octave" };
     LabeledKnob    osc1Tune      { "Tune" };
 
     // ── OSC 2 ─────────────────────────────────────────────────────────────────
     Panel          osc2Panel     { "VCO2" };
-    WaveformKnob   osc2Waveform  { "WAVE" };
+    juce::ComboBox osc2Waveform;
     LabeledKnob    osc2PulseWidth{ "PW" };
     LabeledKnob    osc2Octave    { "Octave" };
     LabeledKnob    osc2Tune      { "Tune" };
@@ -212,12 +209,11 @@ private:
     void triggerRandomize();
 
     // ── Parameter attachments ─────────────────────────────────────────────────
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   masterVolAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   osc1WaveAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> osc1WaveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   osc1PulseWidthAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   osc1OctaveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   osc1TuneAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   osc2WaveAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> osc2WaveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   osc2PulseWidthAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   osc2OctaveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   osc2TuneAttachment;

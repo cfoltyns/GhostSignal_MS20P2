@@ -78,7 +78,7 @@ public:
     void pressure (int pressureValue) override;
     void timbre (int timbreValue) override;
 
-    void setParameters (const dsp::VoiceParams& p);
+    void setParameters (const dsp::VoiceParams& p) override;
     void process (juce::AudioBuffer<float>& buffer, int startSample, int numSamples) override;
 
     // Drift support

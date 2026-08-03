@@ -182,7 +182,7 @@ void EnvDisplay::paint (juce::Graphics& g)
 
         // Label below or above the point
         g.setColour (GhostSignalLookAndFeel::textSecondary);
-        g.setFont (juce::Font (8.0f, juce::Font::plain));
+        g.setFont (juce::Font (juce::FontOptions (8.0f, juce::Font::plain)));
         juce::Rectangle<float> labelBounds = pt.translated (0.0f, isDragging ? -12.0f : 8.0f);
         labelBounds.setHeight (10.0f);
         labelBounds.setWidth (14.0f);

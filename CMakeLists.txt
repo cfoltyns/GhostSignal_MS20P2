@@ -5,6 +5,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Default to Release build if not explicitly set by the user
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 # ------------------------------
 # JUCE (vendored local copy)
 # ------------------------------
@@ -18,7 +23,7 @@ juce_add_plugin(GhostSignalMS20P
     COMPANY_NAME "Ghost Signal"
     PLUGIN_MANUFACTURER_CODE Gsgn
     PLUGIN_CODE MS20
-    FORMATS VST3 AU CLAP Standalone
+    FORMATS VST3 AU Standalone
     PRODUCT_NAME "GhostSignalMS20P"
     VERSION "0.1.0"
     BUNDLE_ID "com.ghostsignal.ms20p"
@@ -111,30 +116,22 @@ target_compile_definitions(GhostSignalMS20P PRIVATE
 # ------------------------------
 # Link JUCE modules
 # ------------------------------
-target_link_libraries(GhostSignalMS20P PRIVATE
-    juce::juce_audio_utils
-    juce::juce_audio_processors
-    juce::juce_audio_basics
-    juce::juce_core
-    juce::juce_data_structures
-    juce::juce_events
-    juce::juce_graphics
-    juce::juce_gui_basics
-    juce::juce_gui_extra
+target_link_libraries(GhostSignalMS20P
+    PRIVATE
+        juce::juce_audio_utils
+        juce::juce_audio_processors
+        juce::juce_audio_basics
+        juce::juce_core
+        juce::juce_data_structures
+        juce::juce_events
+        juce::juce_graphics
+        juce::juce_gui_basics
+        juce::juce_gui_extra
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags
 )
-
-# ------------------------------
-# Post-build copy (Standalone)
-# ------------------------------
-if (JucePlugin_Build_Standalone)
-    get_target_property(_binary GhostSignalMS20P JUCE_SIGNED_COPY_FILE_PATH)
-    add_custom_command(TARGET GhostSignalMS20P POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${_binary}"
-            "${CMAKE_BINARY_DIR}/GhostSignalMS20P_Standalone/$<TARGET_FILE_NAME:GhostSignalMS20P>"
-        COMMENT "Copying standalone bundle..."
-    )
-endif()
 
 # ------------------------------
 # IDE folders

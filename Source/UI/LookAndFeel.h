@@ -83,5 +83,5 @@ public:
     static juce::Font getKnobLabelFont (int knobDiameter);
 
 private:
-    juce::Font knobFont { juce::Font (12.0f, juce::Font::bold) };
+    juce::Font knobFont { juce::Font (juce::FontOptions (12.0f, juce::Font::bold)) };
 };
