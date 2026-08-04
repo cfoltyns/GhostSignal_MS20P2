@@ -155,13 +155,7 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     // ── TAPE DELAY ────────────────────────────────────────────────────────────
     addAndMakeVisible (tapeDelayPanel);
     addAndMakeVisible (tapeDelayMode);
-    {
-        const float snapPositions[] = { 0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f };
-        const juce::StringArray modeLabels = { "1/2", "1/4", "1/8", "1/16", "1/32", "Slap", "MS" };
-        tapeDelayMode.setSnapToValues (snapPositions, 7);
-        tapeDelayMode.setTextValues (modeLabels, snapPositions, 7);
-        tapeDelayMode.setAutoCenterText (true);
-    }
+    tapeDelayMode.addItemList (Parameters::tapeDelayTimeModeChoices, 1);
     addAndMakeVisible (tapeDelayTime);
     addAndMakeVisible (tapeDelayFeedback);
     addAndMakeVisible (tapeDelayMix);
@@ -181,16 +175,8 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     // Use the GhostSignal look and feel for consistent button rendering
     tapeDelayOnOff.setLookAndFeel (&lnf);
     tapeDelayOnOff.setAlpha (0.85f);
-    // Mode knob: show time division in the center, update as user turns it
-    tapeDelayMode.getSlider().onValueChange = [this]
-    {
-        updateTimeKnobVisibility();
-        const float mode = tapeDelayMode.getSlider().getValue();
-        const juce::StringArray labels = { "1/2", "1/4", "1/8", "1/16", "1/32", "Slap", "MS" };
-        const int idx = juce::jlimit (0, labels.size() - 1, (int) std::lround (mode));
-        tapeDelayMode.setCenterText (labels[idx]);
-    };
-    tapeDelayMode.setCenterText ("1/2");
+    // Mode combo box: show/hide time knob based on selected mode
+    tapeDelayMode.onChange = [this] { updateTimeKnobVisibility(); };
 
     // ── RANDOMIZE BUTTON (two-click confirmation) ─────────────────────────────
     addAndMakeVisible (randomizeButton);
@@ -259,7 +245,7 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     glideTimeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramGlideTime,    glideTime.getSlider());
     voiceModeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramVoiceMode,    voiceModeBox);
     tapeDelayEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, Parameters::paramTapeDelayEnable, tapeDelayOnOff);
-    tapeDelayTimeModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayTimeMode, tapeDelayMode.getSlider());
+    tapeDelayTimeModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramTapeDelayTimeMode, tapeDelayMode);
     tapeDelayTimeAttachment     = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayTime, tapeDelayTime.getSlider());
     tapeDelayFeedbackAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayFeedback, tapeDelayFeedback.getSlider());
     tapeDelayMixAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayMix, tapeDelayMix.getSlider());
@@ -294,6 +280,7 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     vcfEnvDisplay.onReleaseChanged = makeTimeCallback(Parameters::paramEnv1Release, 5.0f);
 
     updatePulseWidthVisibility();
+    updateTimeKnobVisibility();
 
     // ── Set improved knob sensitivity for all rotary sliders ──────────────────
     auto setKnobSensitivity = [](juce::Slider& slider)
@@ -344,7 +331,6 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     setKnobSensitivity (ampGain.getSlider());
     setKnobSensitivity (pan.getSlider());
     setKnobSensitivity (glideTime.getSlider());
-    setKnobSensitivity (tapeDelayMode.getSlider());
     setKnobSensitivity (tapeDelayTime.getSlider());
     setKnobSensitivity (tapeDelayFeedback.getSlider());
     setKnobSensitivity (tapeDelayMix.getSlider());
@@ -891,7 +877,18 @@ void PluginEditor::layoutRow2 (int x, int y, int totalW, int totalH,
         const R botRow (curX + padH, y + knobAreaTop + knobRowH + gap,
                         tapeW - 2 * padH, knobRowH);
 
-        placeKnobRow ({ &tapeDelayMode, &tapeDelayFeedback, &tapeDelayMix }, topRow, smallKnobD);
+        // Mode combo box takes the left ~1/3 of the top row
+        const int modeComboW = (tapeW - 2 * padH) / 3;
+        const int modeComboH = juce::jmax (18, (int) (knobRowH * 0.45f));
+        const int modeComboX = curX + padH;
+        const int modeComboY = y + knobAreaTop + (knobRowH - modeComboH) / 2;
+        tapeDelayMode.setBounds (modeComboX, modeComboY, modeComboW, modeComboH);
+
+        // Feedback and Mix knobs take the right ~2/3
+        const int knobStartX = modeComboX + modeComboW + padH;
+        const int remainingW = (tapeW - 2 * padH) - modeComboW - padH;
+        const R fbMixArea (knobStartX, y + knobAreaTop, remainingW, knobRowH);
+        placeKnobRow ({ &tapeDelayFeedback, &tapeDelayMix }, fbMixArea, smallKnobD);
         placeKnobRow ({ &tapeDelayTime, &tapeDelayAge, &tapeDelaySat, &tapeDelayWow, &tapeDelayFlutter }, botRow, smallKnobD);
 
         // Tape delay on/off button — labeled toggle positioned in the
@@ -1060,9 +1057,8 @@ void PluginEditor::syncEnvDisplays()
 
 void PluginEditor::updateTimeKnobVisibility()
 {
-    // Show the Time knob only in MS mode (value 6)
-    const float mode = tapeDelayMode.getSlider().getValue();
-    tapeDelayTime.setVisible (std::abs (mode - 6.0f) < 0.5f);
+    // Show the Time knob only in MS mode (choice ID 7, since items start at 1)
+    tapeDelayTime.setVisible (tapeDelayMode.getSelectedId() == 7);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1368,7 +1364,6 @@ void PluginEditor::timerCallback()
     setKnobLed (ampGain,        Parameters::paramAmpGain, 0.7f);
     setKnobLed (pan,            Parameters::paramPan, 0.5f);
     setKnobLed (glideTime,      Parameters::paramGlideTime, 0.0f);
-    setKnobLed (tapeDelayMode,  Parameters::paramTapeDelayTimeMode, 0.0f);
     setKnobLed (tapeDelayTime,     Parameters::paramTapeDelayTime, 300.0f);
     setKnobLed (tapeDelayFeedback, Parameters::paramTapeDelayFeedback, 0.5f);
     setKnobLed (tapeDelayMix,      Parameters::paramTapeDelayMix, 0.5f);

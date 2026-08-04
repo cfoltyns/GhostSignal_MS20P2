@@ -188,7 +188,7 @@ private:
 
     // ── TAPE DELAY ───────────────────────────────────────────────────────────
     Panel          tapeDelayPanel { "TAPE DELAY" };
-    LabeledKnob    tapeDelayMode     { "Mode" };
+    juce::ComboBox tapeDelayMode;
     LabeledKnob    tapeDelayTime     { "Time" };
     LabeledKnob    tapeDelayFeedback { "FB" };
     LabeledKnob    tapeDelayMix      { "Mix" };
@@ -259,7 +259,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   glideTimeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> voiceModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   tapeDelayEnableAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayTimeModeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> tapeDelayTimeModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayTimeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayFeedbackAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayMixAttachment;

@@ -148,6 +148,8 @@ public:
     // Noise color options
     static const juce::StringArray noiseTypeChoices;
 
+    // Tape delay time mode options (tempo sync divisions)
+    static const juce::StringArray tapeDelayTimeModeChoices;
 
     // List of parameter IDs that are "knobs" eligible for the Randomize feature.
     // (Excludes discrete choices like waveform/scale/voice mode, and master volume.)
