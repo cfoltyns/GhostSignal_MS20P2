@@ -472,8 +472,8 @@ void PluginEditor::layoutHeaderBar (int margin, int headerH, int largeKnobD)
     const int btnY = margin + (headerH - btnH) / 2;
     randomizeButton.setBounds (btnX, btnY, btnW, btnH);
 
-    // Logo text: left-aligned, space out with a wider gap
-    const int logoW = btnX - margin - 3 * margin;
+    // Logo text: left-aligned, snug up against the randomize button
+    const int logoW = btnX - 2 * margin;
     logoComponent.setBounds (margin, margin, logoW, headerH);
 }
 
@@ -495,7 +495,7 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
     const int vco2W   = (int) (totalW * 0.15f);
     const int subW    = (int) (totalW * 0.11f);
     const int mixerW  = (int) (totalW * 0.17f);
-    const int filterW = (int) (totalW * 0.25f);
+    const int filterW = (int) (totalW * 0.27f);
     const int spacerW = totalW - vco1W - vco2W - subW - mixerW - filterW - 5 * gap;
 
     int curX = x;
@@ -682,7 +682,7 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
         filterSeparatorBounds = juce::Rectangle<int> (curX + padH + colW, topY, sepW, innerH);
 
         // ── Top row: large cutoff knobs, centered in each column ──
-        const int largeKnobSize = juce::jmin (colW, topRowH, (int) (largeKnobD * 1.35f));
+        const int largeKnobSize = juce::jmin (colW, topRowH, (int) (largeKnobD * 1.5f));
         const int largeKnobY    = topY + (topRowH - largeKnobSize) / 2;
         lpfCutoff.setBounds (lpfCenterX - largeKnobSize / 2, largeKnobY, largeKnobSize, largeKnobSize);
         hpfCutoff.setBounds (hpfCenterX - largeKnobSize / 2, largeKnobY, largeKnobSize, largeKnobSize);
@@ -1233,6 +1233,7 @@ void PluginEditor::timerCallback()
     }
 
     updatePulseWidthVisibility();
+    updateTimeKnobVisibility();
 
     auto& apvts = audioProcessor.getAPVTS();
     const bool tapeEnabled = (apvts.getRawParameterValue (Parameters::paramTapeDelayEnable) != nullptr)
