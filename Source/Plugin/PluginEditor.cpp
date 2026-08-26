@@ -491,12 +491,27 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
 
     // Column widths — VCO1 and VCO2 are now separate columns with a gap
     // between them for better spacing and visual breathing room.
-    const int vco1W   = (int) (totalW * 0.15f);
-    const int vco2W   = (int) (totalW * 0.15f);
-    const int subW    = (int) (totalW * 0.11f);
-    const int mixerW  = (int) (totalW * 0.17f);
-    const int filterW = (int) (totalW * 0.27f);
-    const int spacerW = totalW - vco1W - vco2W - subW - mixerW - filterW - 5 * gap;
+    //
+    // NOTE: These ratios are normalised against the USABLE width (totalW
+    // minus the inter-panel gaps), so the five panels always stretch
+    // edge-to-edge with no unused spacer on the right. Previously the raw
+    // ratios summed to only 0.85 and the leftover "spacerW" was never used,
+    // leaving a large empty strip on the right side of the row. The Filter
+    // panel (widest column) absorbs any integer-rounding remainder.
+    constexpr float rVco1   = 0.15f;
+    constexpr float rVco2   = 0.15f;
+    constexpr float rSub    = 0.11f;
+    constexpr float rMixer  = 0.17f;
+    constexpr float rFilter = 0.27f;
+    const float ratioSum = rVco1 + rVco2 + rSub + rMixer + rFilter;
+
+    const int usableW = juce::jmax (100, totalW - 5 * gap);
+    const int vco1W   = (int) (usableW * rVco1 / ratioSum);
+    const int vco2W   = (int) (usableW * rVco2 / ratioSum);
+    const int subW    = (int) (usableW * rSub  / ratioSum);
+    const int mixerW  = (int) (usableW * rMixer / ratioSum);
+    const int usedW   = vco1W + vco2W + subW + mixerW;
+    const int filterW = juce::jmax (120, usableW - usedW);
 
     int curX = x;
 
@@ -777,11 +792,23 @@ void PluginEditor::layoutRow2 (int x, int y, int totalW, int totalH,
     const int mediumKnobD = knobD;
     const int gap = juce::jmax (6, (int) (totalW * 0.006f));
 
-    const int glideW  = (int) (totalW * 0.10f);
-    const int lfoW    = (int) (totalW * 0.12f);
-    const int tapeW   = (int) (totalW * 0.24f);
-    const int ampW    = (int) (totalW * 0.10f);
-    const int remainderW = totalW - glideW - 4 * lfoW - tapeW - ampW - 6 * gap;
+    // NOTE: Ratios are normalised against the USABLE width (totalW minus the
+    // six inter-panel gaps), so the seven panels always fill the row
+    // edge-to-edge. Previously the raw ratios summed to only 0.92 and the
+    // leftover "remainderW" was computed but never used, leaving an empty
+    // strip on the right. The Amp panel absorbs any integer rounding.
+    constexpr float rGlide = 0.10f;
+    constexpr float rLfo   = 0.12f;
+    constexpr float rTape  = 0.24f;
+    constexpr float rAmp   = 0.10f;
+    const float ratioSum = rGlide + 4 * rLfo + rTape + rAmp;
+
+    const int usableW = juce::jmax (100, totalW - 6 * gap);
+    const int glideW  = (int) (usableW * rGlide / ratioSum);
+    const int lfoW    = (int) (usableW * rLfo   / ratioSum);
+    const int tapeW   = (int) (usableW * rTape  / ratioSum);
+    const int usedW   = glideW + 4 * lfoW + tapeW;
+    const int ampW    = juce::jmax (80, usableW - usedW);
 
     int curX = x;
 
