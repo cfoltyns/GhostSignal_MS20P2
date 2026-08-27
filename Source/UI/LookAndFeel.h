@@ -13,8 +13,8 @@
  *   Panel border: #2A2A3A (subtle)
  *   Text primary: #E0E0E8
  *   Text secondary: #8A8A9A
- *   Accent:       #FF6B35 (warm orange-red)
- *   Accent dark:  #CC552B
+ *   Accent:       #F6A431 (amber yellow)
+ *   Accent dark:  #C58327
  *   Disabled:     #4A4A5A
  *   Knob body:    #2A2A3A (brushed metal)
  *   Knob rim:     #5A5A6A (chrome)

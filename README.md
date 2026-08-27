@@ -143,7 +143,7 @@ are easily editable.
 The interface features a complete redesign with a clean, modern, premium aesthetic:
 
 - **Color palette**: Deep charcoal background (#0A0A0C) with dark slate panels (#141418),
-  subtle borders, and a single warm accent color (#FF6B35)
+  subtle borders, and a single warm accent color (#F6A431)
 - **Custom knobs**: Brushed-metal texture with chrome rims, machined aluminum center caps,
   dual-arc value indicators, and subtle glow effects
 - **Modular layout**: Signal-flow-based sections (Oscillators → Mixer → Filter → Envelopes →

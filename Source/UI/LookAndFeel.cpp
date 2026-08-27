@@ -21,8 +21,8 @@ const Colour GhostSignalLookAndFeel::panel        { Colour (0xFF141418) };
 const Colour GhostSignalLookAndFeel::panelBorder  { Colour (0xFF2A2A3A) };
 const Colour GhostSignalLookAndFeel::textPrimary  { Colour (0xFFE0E0E8) };
 const Colour GhostSignalLookAndFeel::textSecondary{ Colour (0xFF8A8A9A) };
-const Colour GhostSignalLookAndFeel::accent       { Colour (0xFFFF6B35) };
-const Colour GhostSignalLookAndFeel::accentDark   { Colour (0xFFCC552B) };
+const Colour GhostSignalLookAndFeel::accent       { Colour (0xFFF6A431) };
+const Colour GhostSignalLookAndFeel::accentDark   { Colour (0xFFC58327) };
 const Colour GhostSignalLookAndFeel::disabled     { Colour (0xFF4A4A5A) };
 
 const Colour GhostSignalLookAndFeel::knobBody   { Colour (0xFF2A2A3A) };

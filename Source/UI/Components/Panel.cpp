@@ -74,12 +74,7 @@ void Panel::paint (juce::Graphics& g)
         titlePath.addRoundedRectangle (0.0f, 0.0f, w, titleH,
                                        corner, corner,
                                        true, true, false, false);
-        juce::ColourGradient titleBg;
-        titleBg.point1 = { 0.0f, 0.0f };
-        titleBg.point2 = { 0.0f, titleH };
-        titleBg.addColour (0.0f, GhostSignalLookAndFeel::accent.darker (0.3f));
-        titleBg.addColour (1.0f, GhostSignalLookAndFeel::panel.darker (0.1f));
-        g.setGradientFill (titleBg);
+        g.setColour (GhostSignalLookAndFeel::accent);
         g.fillPath (titlePath);
     }
 
