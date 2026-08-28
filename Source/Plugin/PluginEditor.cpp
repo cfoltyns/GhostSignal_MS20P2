@@ -17,6 +17,42 @@
 
 #include "PluginEditor.h"
 #include <random>
+#include <cmath>
+
+// ── LFO tempo-sync helpers ────────────────────────────────────────────────────
+namespace
+{
+    // The 12 tempo-synced LFO divisions (1/4, 1/8, 1/16, 1/32 with straight,
+    // triplet and dotted variants) live in Parameters — shared with the DSP so
+    // the UI and audio can never disagree about which division is selected.
+
+    // Snap values (full 0..1 positions) used by the rate knob while in sync.
+    const float* lfoSyncSnapValues()
+    {
+        static float vals[Parameters::lfoSyncDivisionCount];
+        static bool initialised = false;
+        if (!initialised)
+        {
+            for (int i = 0; i < Parameters::lfoSyncDivisionCount; ++i)
+                vals[i] = Parameters::lfoSyncParamValue (i);
+            initialised = true;
+        }
+        return vals;
+    }
+
+    // Format a free-running period (ms) for the Rate knob centre label.
+    inline juce::String lfoRateMsLabel (float periodMs)
+    {
+        if (periodMs >= 1000.0f)
+            return juce::String (periodMs / 1000.0, 1) + "s";
+        return juce::String (juce::roundToInt (periodMs)) + "ms";
+    }
+
+    // Octave knob snap positions (whole octave steps).
+    constexpr float octaveSnapOsc1[] = { -2.0f, -1.0f, 0.0f, 1.0f, 2.0f };
+    constexpr float octaveSnapOsc2[] = { -3.0f, -2.0f, -1.0f, 0.0f, 1.0f, 2.0f, 3.0f };
+    constexpr float octaveSnapSub[]  = { -3.0f, -2.0f, -1.0f, 0.0f, 1.0f, 2.0f, 3.0f };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constructor
@@ -42,7 +78,11 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (osc1Octave);
     addAndMakeVisible (osc1Tune);
     osc1Waveform.addItemList (Parameters::oscWaveformChoices, 1);
-    osc1Waveform.onChange = [this] { updatePulseWidthVisibility(); };
+    osc1Waveform.onChange = [this]
+    {
+        updatePulseWidthVisibility();
+        resized(); // re-position the PW knob (only laid out when visible)
+    };
 
     // ── OSC2 ─────────────────────────────────────────────────────────────────
     addAndMakeVisible (osc2Panel);
@@ -51,7 +91,11 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (osc2Octave);
     addAndMakeVisible (osc2Tune);
     osc2Waveform.addItemList (Parameters::oscWaveformChoices, 1);
-    osc2Waveform.onChange = [this] { updatePulseWidthVisibility(); };
+    osc2Waveform.onChange = [this]
+    {
+        updatePulseWidthVisibility();
+        resized(); // re-position the PW knob (only laid out when visible)
+    };
 
     // ── SUB / NOISE ───────────────────────────────────────────────────────────
     addAndMakeVisible (subPanel);
@@ -151,6 +195,25 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (lfo4Depth);
     addAndMakeVisible (lfo4Dest);
     addAndMakeVisible (lfo4Display);
+
+    // ── LFO sync toggles (lock the Rate knob to DAW tempo divisions) ─────────
+    auto configureSyncButton = [this](juce::TextButton& btn, int lfoIndex)
+    {
+        addAndMakeVisible (btn);
+        btn.setButtonText ("SYNC");
+        btn.setClickingTogglesState (true);
+        btn.setLookAndFeel (&lnf);
+        btn.setColour (juce::TextButton::buttonColourId, GhostSignalLookAndFeel::knobBody);
+        btn.setColour (juce::TextButton::buttonOnColourId, GhostSignalLookAndFeel::accent);
+        btn.setColour (juce::TextButton::textColourOffId, GhostSignalLookAndFeel::textSecondary);
+        btn.setColour (juce::TextButton::textColourOnId, juce::Colours::white);
+        btn.setAlpha (0.85f);
+        btn.onClick = [this, lfoIndex] { applyLfoSyncMode (lfoIndex); };
+    };
+    configureSyncButton (lfo1Sync, 0);
+    configureSyncButton (lfo2Sync, 1);
+    configureSyncButton (lfo3Sync, 2);
+    configureSyncButton (lfo4Sync, 3);
 
     // ── TAPE DELAY ────────────────────────────────────────────────────────────
     addAndMakeVisible (tapeDelayPanel);
@@ -281,6 +344,31 @@ PluginEditor::PluginEditor (PluginProcessor& p)
 
     updatePulseWidthVisibility();
     updateTimeKnobVisibility();
+
+    // ── Octave knobs snap to whole octave steps ──────────────────────────────
+    osc1Octave.setSnapToValues (octaveSnapOsc1, 5);
+    osc2Octave.setSnapToValues (octaveSnapOsc2, 7);
+    subOctave.setSnapToValues (octaveSnapSub, 7);
+
+    // ── Initialise LFO sync toggle states from their persisted sync params ───
+    for (int i = 0; i < 4; ++i)
+    {
+        LabeledKnob&    rate = (i == 0 ? lfo1Rate : i == 1 ? lfo2Rate : i == 2 ? lfo3Rate : lfo4Rate);
+        juce::TextButton& btn = (i == 0 ? lfo1Sync : i == 1 ? lfo2Sync : i == 2 ? lfo3Sync : lfo4Sync);
+        const juce::String syncId = (i == 0 ? Parameters::paramLFO1Sync
+                                     : i == 1 ? Parameters::paramLFO2Sync
+                                     : i == 2 ? Parameters::paramLFO3Sync
+                                              : Parameters::paramLFO4Sync);
+
+        const bool wasSync = (apvts.getRawParameterValue (syncId)
+                              && apvts.getRawParameterValue (syncId)->load() > 0.5f);
+        btn.setToggleState (wasSync, juce::dontSendNotification);
+
+        // Keep the division / ms label current while the knob is dragged
+        rate.getSlider().onValueChange = [this, i] { refreshLfoRateLabel (i); };
+
+        applyLfoSyncMode (i);
+    }
 
     // ── Set improved knob sensitivity for all rotary sliders ──────────────────
     auto setKnobSensitivity = [](juce::Slider& slider)
@@ -515,7 +603,8 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
 
     int curX = x;
 
-    // ── VCO1 (own column) — Wave ComboBox at top, Octave/Tune below ───────
+    // ── VCO1 (own column) — Wave ComboBox at top, PW below centred when
+    // Pulse is selected, Octave/Tune anchored to the bottom ────────
     {
         const R osc1Bounds (curX, y, vco1W, totalH);
         osc1Panel.setBounds (osc1Bounds);
@@ -523,40 +612,32 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
         const int titleH  = osc1Panel.getTitleAreaHeight();
         const int padH    = juce::jmax (6, (int) (totalH * 0.035f));
 
-        // PW knob is smaller to fit
-        const int pwKnobD   = juce::jlimit (32, 40, (int) (mediumKnobD * 0.70f));
-        const int pwWidgetH = juce::jmax (60, pwKnobD + 12);
+        // PW knob is smaller so it fits in the gap below the pulldown
+        const int pwKnobD   = juce::jlimit (30, 42, (int) (mediumKnobD * 0.70f));
+        const int pwWidgetH = pwKnobD + 18;
 
-        // Row 1: Waveform ComboBox (left), or Waveform + PW side by side
+        // Row 1: Waveform ComboBox — always full width across the top
         const int row1Top = titleH + padH;
-        const int row1H   = juce::jmax (66, (int) ((totalH - row1Top - padH) * 0.55f));
-        const int comboH  = juce::jmax (18, (int) (row1H * 0.30f));
+        const int comboH  = juce::jmax (16, (int) ((totalH - row1Top - padH) * 0.16f));
+        osc1Waveform.setBounds (curX + padH, y + row1Top, vco1W - 2 * padH, comboH);
 
-        const bool pwVisible = osc1PulseWidth.isVisible();
+        // Bottom: Octave and Tune knobs, anchored to the bottom of the panel
+        const int bottomPadY = y + totalH - padH;
+        const int octH       = juce::jmax (50, (int) (mediumKnobD * 1.2f));
+        const int row2Top    = bottomPadY - octH;
+        const R row2Area (curX + padH, row2Top, vco1W - 2 * padH, bottomPadY - row2Top);
+        placeKnobRow ({ &osc1Octave, &osc1Tune }, row2Area, mediumKnobD);
 
-        if (pwVisible)
+        // Pulse-width knob: centered in the gap between the pulldown and the
+        // Octave/Tune knobs — visible only when Pulse is selected.
+        if (osc1PulseWidth.isVisible())
         {
-            // Waveform ComboBox shifts left, PW appears to its right
-            const int waveW = vco1W - 2 * padH - pwWidgetH - padH;
-            osc1Waveform.setBounds (curX + padH, y + row1Top + (row1H - comboH) / 2,
-                                  waveW, comboH);
-
-            const int pwX = curX + vco1W - padH - pwWidgetH;
-            const int pwY = y + row1Top + (row1H - pwWidgetH) / 2;
+            const int pwBandTop = y + row1Top + comboH + padH;
+            const int pwBandH   = row2Top - pwBandTop;
+            const int pwY       = pwBandTop + juce::jmax (0, (pwBandH - pwWidgetH) / 2);
+            const int pwX       = curX + padH + (vco1W - 2 * padH - pwWidgetH) / 2;
             osc1PulseWidth.setBounds (pwX, pwY, pwWidgetH, pwWidgetH);
         }
-        else
-        {
-            // Waveform ComboBox full width
-            osc1Waveform.setBounds (curX + padH, y + row1Top + (row1H - comboH) / 2,
-                                  vco1W - 2 * padH, comboH);
-        }
-
-        // Row 2: Octave and Tune
-        const int row2Top = row1Top + row1H + padH;
-        const int row2H   = totalH - row2Top - padH;
-        const R row2Area (curX + padH, y + row2Top, vco1W - 2 * padH, row2H);
-        placeKnobRow ({ &osc1Octave, &osc1Tune }, row2Area, mediumKnobD);
     }
 
     curX += vco1W + gap;
@@ -569,40 +650,32 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
         const int titleH  = osc2Panel.getTitleAreaHeight();
         const int padH    = juce::jmax (6, (int) (totalH * 0.035f));
 
-        // PW knob is smaller to fit
-        const int pwKnobD   = juce::jlimit (32, 40, (int) (mediumKnobD * 0.70f));
-        const int pwWidgetH = juce::jmax (60, pwKnobD + 12);
+        // PW knob is smaller so it fits in the gap below the pulldown
+        const int pwKnobD   = juce::jlimit (30, 42, (int) (mediumKnobD * 0.70f));
+        const int pwWidgetH = pwKnobD + 18;
 
-        // Row 1: Waveform ComboBox (left), or Waveform + PW side by side
+        // Row 1: Waveform ComboBox — always full width across the top
         const int row1Top = titleH + padH;
-        const int row1H   = juce::jmax (66, (int) ((totalH - row1Top - padH) * 0.55f));
-        const int comboH  = juce::jmax (18, (int) (row1H * 0.30f));
+        const int comboH  = juce::jmax (16, (int) ((totalH - row1Top - padH) * 0.16f));
+        osc2Waveform.setBounds (curX + padH, y + row1Top, vco2W - 2 * padH, comboH);
 
-        const bool pwVisible = osc2PulseWidth.isVisible();
+        // Bottom: Octave and Tune knobs, anchored to the bottom of the panel
+        const int bottomPadY = y + totalH - padH;
+        const int octH       = juce::jmax (50, (int) (mediumKnobD * 1.2f));
+        const int row2Top    = bottomPadY - octH;
+        const R row2Area (curX + padH, row2Top, vco2W - 2 * padH, bottomPadY - row2Top);
+        placeKnobRow ({ &osc2Octave, &osc2Tune }, row2Area, mediumKnobD);
 
-        if (pwVisible)
+        // Pulse-width knob: centered in the gap between the pulldown and the
+        // Octave/Tune knobs — visible only when Pulse is selected.
+        if (osc2PulseWidth.isVisible())
         {
-            // Waveform ComboBox shifts left, PW appears to its right
-            const int waveW = vco2W - 2 * padH - pwWidgetH - padH;
-            osc2Waveform.setBounds (curX + padH, y + row1Top + (row1H - comboH) / 2,
-                                  waveW, comboH);
-
-            const int pwX = curX + vco2W - padH - pwWidgetH;
-            const int pwY = y + row1Top + (row1H - pwWidgetH) / 2;
+            const int pwBandTop = y + row1Top + comboH + padH;
+            const int pwBandH   = row2Top - pwBandTop;
+            const int pwY       = pwBandTop + juce::jmax (0, (pwBandH - pwWidgetH) / 2);
+            const int pwX       = curX + padH + (vco2W - 2 * padH - pwWidgetH) / 2;
             osc2PulseWidth.setBounds (pwX, pwY, pwWidgetH, pwWidgetH);
         }
-        else
-        {
-            // Waveform ComboBox full width
-            osc2Waveform.setBounds (curX + padH, y + row1Top + (row1H - comboH) / 2,
-                                  vco2W - 2 * padH, comboH);
-        }
-
-        // Row 2: Octave and Tune
-        const int row2Top = row1Top + row1H + padH;
-        const int row2H   = totalH - row2Top - padH;
-        const R row2Area (curX + padH, y + row2Top, vco2W - 2 * padH, row2H);
-        placeKnobRow ({ &osc2Octave, &osc2Tune }, row2Area, mediumKnobD);
     }
 
     curX += vco2W + gap;
@@ -746,11 +819,11 @@ void PluginEditor::layoutEnvelopeRow (int x, int y, int totalW, int totalH, int 
         const int knobAreaW = (int) (vcaW * 0.48f);
         const int dispW     = vcaW - knobAreaW - padH;
 
-        // Four ADSR knobs in a horizontal row
+        // Four ADSR knobs in a horizontal row — 25% smaller to open up the row
         const R knobRow (curX + padH, y + titleH + padH,
                          knobAreaW - padH, innerH);
         placeKnobRow ({ &ampAttack, &ampDecay, &ampSustain, &ampRelease },
-                      knobRow, mediumKnobD);
+                      knobRow, (int) (mediumKnobD * 0.75f));
 
         ampEnvDisplay.setBounds (curX + knobAreaW, y + titleH + padH,
                                  dispW, innerH);
@@ -770,10 +843,11 @@ void PluginEditor::layoutEnvelopeRow (int x, int y, int totalW, int totalH, int 
         const int knobAreaW = (int) (vcfW * 0.48f);
         const int dispW     = vcfW - knobAreaW - padH;
 
+        // Four ADSR knobs in a horizontal row — 25% smaller to open up the row
         const R knobRow (curX + padH, y + titleH + padH,
                          knobAreaW - padH, innerH);
         placeKnobRow ({ &env1Attack, &env1Decay, &env1Sustain, &env1Release },
-                      knobRow, mediumKnobD);
+                      knobRow, (int) (mediumKnobD * 0.75f));
 
         vcfEnvDisplay.setBounds (curX + knobAreaW, y + titleH + padH,
                                  dispW, innerH);
@@ -837,6 +911,7 @@ void PluginEditor::layoutRow2 (int x, int y, int totalW, int totalH,
     // ── Helper lambda for LFO panel layout ────────────────────────────────────
     auto layoutLfoPanel = [&](Panel& panel,
                                juce::ComboBox& waveCombo,
+                               juce::TextButton& syncButton,
                                LabeledKnob& rateKnob,
                                LabeledKnob& depthKnob,
                                juce::ComboBox& destCombo,
@@ -851,19 +926,26 @@ void PluginEditor::layoutRow2 (int x, int y, int totalW, int totalH,
         const int padH   = juce::jmax (4, (int) (panelH * 0.04f));
         const int comboH = juce::jmax (16, (int) (panelH * 0.10f));
 
+        // Top row: waveform combo + SYNC toggle, side by side
+        const int syncBtnW = juce::jmax (36, (int) (panelW * 0.24f));
+        const int waveW    = panelW - 2 * padH - syncBtnW;
         waveCombo.setBounds (panelX + padH, panelY + titleH + padH,
-                             panelW - 2 * padH, comboH);
+                             waveW, comboH);
+        syncButton.setBounds (panelX + padH + waveW + padH, panelY + titleH + padH,
+                              syncBtnW, comboH);
 
+        // Waveform display below the top row
         const int dispH = juce::jmax (16, (int) (panelH * 0.12f));
         display.setBounds (panelX + padH, panelY + titleH + padH + comboH + padH,
                            panelW - 2 * padH, dispH);
 
-        // Knobs arranged horizontally: Rate, Depth
+        // Rate + Depth knobs — smaller so the sync toggle fits in the panel
         const int knobAreaTop = titleH + padH + comboH + padH + dispH + padH;
+        const int lfoKnobD    = juce::jmax (30, (int) (knobD * 0.80f));
         const R knobArea (panelX + padH, panelY + knobAreaTop,
                           panelW - 2 * padH,
                           panelH - knobAreaTop - padH - comboH);
-        placeKnobRow ({ &rateKnob, &depthKnob }, knobArea, mediumKnobD);
+        placeKnobRow ({ &rateKnob, &depthKnob }, knobArea, lfoKnobD);
 
         // Dest combo at the bottom
         destCombo.setBounds (panelX + padH, panelY + panelH - padH - comboH,
@@ -871,19 +953,19 @@ void PluginEditor::layoutRow2 (int x, int y, int totalW, int totalH,
     };
 
     // ── LFO1 ─────────────────────────────────────────────────────────────────
-    layoutLfoPanel (lfo1Panel, lfo1Waveform, lfo1Rate, lfo1Depth, lfo1Dest, lfo1Display,
+    layoutLfoPanel (lfo1Panel, lfo1Waveform, lfo1Sync, lfo1Rate, lfo1Depth, lfo1Dest, lfo1Display,
                     curX, y, lfoW, totalH, mediumKnobD, gap);
     curX += lfoW + gap;
 
-    layoutLfoPanel (lfo2Panel, lfo2Waveform, lfo2Rate, lfo2Depth, lfo2Dest, lfo2Display,
+    layoutLfoPanel (lfo2Panel, lfo2Waveform, lfo2Sync, lfo2Rate, lfo2Depth, lfo2Dest, lfo2Display,
                     curX, y, lfoW, totalH, mediumKnobD, gap);
     curX += lfoW + gap;
 
-    layoutLfoPanel (lfo3Panel, lfo3Waveform, lfo3Rate, lfo3Depth, lfo3Dest, lfo3Display,
+    layoutLfoPanel (lfo3Panel, lfo3Waveform, lfo3Sync, lfo3Rate, lfo3Depth, lfo3Dest, lfo3Display,
                     curX, y, lfoW, totalH, mediumKnobD, gap);
     curX += lfoW + gap;
 
-    layoutLfoPanel (lfo4Panel, lfo4Waveform, lfo4Rate, lfo4Depth, lfo4Dest, lfo4Display,
+    layoutLfoPanel (lfo4Panel, lfo4Waveform, lfo4Sync, lfo4Rate, lfo4Depth, lfo4Dest, lfo4Display,
                     curX, y, lfoW, totalH, mediumKnobD, gap);
     curX += lfoW + gap;
 
@@ -1038,11 +1120,14 @@ void PluginEditor::placeKnobColumn (std::initializer_list<juce::Component*> knob
 
 void PluginEditor::updatePulseWidthVisibility()
 {
-    // Pulse is the 4th waveform choice (ComboBox ID 4, since items start at 1)
-    const bool osc1ShowPW = (osc1Waveform.getSelectedId() == 4);
+    // Only the "Pulse" waveform has a pulse-width control.
+    // Pulse is the 4th oscillator waveform (ComboBox ID 4, item index 3).
+    const int osc1WaveId = osc1Waveform.getSelectedId();
+    const bool osc1ShowPW = (osc1WaveId == 4);
     osc1PulseWidth.setVisible (osc1ShowPW);
 
-    const bool osc2ShowPW = (osc2Waveform.getSelectedId() == 4);
+    const int osc2WaveId = osc2Waveform.getSelectedId();
+    const bool osc2ShowPW = (osc2WaveId == 4);
     osc2PulseWidth.setVisible (osc2ShowPW);
 }
 
@@ -1086,6 +1171,73 @@ void PluginEditor::updateTimeKnobVisibility()
 {
     // Show the Time knob only in MS mode (choice ID 7, since items start at 1)
     tapeDelayTime.setVisible (tapeDelayMode.getSelectedId() == 7);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// applyLfoSyncMode() — enforce the SYNC toggle for one LFO
+// ─────────────────────────────────────────────────────────────────────────────
+
+void PluginEditor::applyLfoSyncMode (int lfoIndex)
+{
+    LabeledKnob&    rate = (lfoIndex == 0 ? lfo1Rate : lfoIndex == 1 ? lfo2Rate : lfoIndex == 2 ? lfo3Rate : lfo4Rate);
+    juce::TextButton& btn = (lfoIndex == 0 ? lfo1Sync : lfoIndex == 1 ? lfo2Sync : lfoIndex == 2 ? lfo3Sync : lfo4Sync);
+    juce::Slider&  slider = rate.getSlider();
+    const juce::String syncId = (lfoIndex == 0 ? Parameters::paramLFO1Sync
+                                 : lfoIndex == 1 ? Parameters::paramLFO2Sync
+                                 : lfoIndex == 2 ? Parameters::paramLFO3Sync
+                                                 : Parameters::paramLFO4Sync);
+    auto& apvts = audioProcessor.getAPVTS();
+
+    const bool syncOn = btn.getToggleState();
+
+    // Persist the sync mode as a real boolean parameter.
+    if (auto* p = apvts.getParameter (syncId))
+        p->setValueNotifyingHost (syncOn ? 1.0f : 0.0f);
+
+    if (syncOn)
+    {
+        // Enter tempo sync: preserve the knob's current position by mapping it
+        // to the nearest of the 12 divisions across the full 0..1 range.
+        const float cur = slider.getValue();
+        const int idx = Parameters::lfoSyncIndexForValue (cur);
+        const float snapped = Parameters::lfoSyncParamValue (idx);
+
+        slider.setRange (0.0, 1.0, 0.001);
+        rate.setSnapValuesOnly (lfoSyncSnapValues(), Parameters::lfoSyncDivisionCount);
+        rate.clearTextValues(); // no room around the knob — only show the selection in the centre
+        slider.setValue (snapped, juce::sendNotificationSync);
+        rate.setCenterText (Parameters::lfoSyncLabel (idx));
+    }
+    else
+    {
+        // Exit tempo sync: the whole 0..1 range now maps to free-running ms.
+        slider.setRange (0.0, 1.0, 0.001);
+        rate.clearSnapValues();
+        rate.clearTextValues(); // hide the division labels around the knob
+        refreshLfoRateLabel (lfoIndex);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// refreshLfoRateLabel() — show the current tempo division (sync ON) or the
+// free-running ms period (sync OFF) in the rate knob
+// ─────────────────────────────────────────────────────────────────────────────
+
+void PluginEditor::refreshLfoRateLabel (int lfoIndex)
+{
+    LabeledKnob&    rate = (lfoIndex == 0 ? lfo1Rate : lfoIndex == 1 ? lfo2Rate : lfoIndex == 2 ? lfo3Rate : lfo4Rate);
+    juce::TextButton& btn = (lfoIndex == 0 ? lfo1Sync : lfoIndex == 1 ? lfo2Sync : lfoIndex == 2 ? lfo3Sync : lfo4Sync);
+
+    if (btn.getToggleState())
+    {
+        // Sync ON — show the nearest tempo division in the knob centre.
+        rate.setCenterText (Parameters::lfoSyncLabel (Parameters::lfoSyncIndexForValue ((float) rate.getSlider().getValue())));
+    }
+    else
+    {
+        // Sync OFF — MS timed: show the current free-running period.
+        rate.setCenterText (lfoRateMsLabel (Parameters::lfoFreePeriodMs ((float) rate.getSlider().getValue())));
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

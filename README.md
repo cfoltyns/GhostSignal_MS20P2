@@ -100,7 +100,9 @@ The synth features **4 independent LFOs**, each with:
 
 - **Waveform** selector (5 classic options: Sine, Triangle, Square, Sawtooth,
   Random) with real-time visual display
-- **Rate** knob (0.01–20 Hz, logarithmic)
+- **Rate** knob — **MS timed** when free-running (1 ms–10 s period, logarithmic)
+  with a **SYNC** toggle that switches the knob to 18 tempo divisions
+  (straight / triplet / dotted), locked to the DAW tempo
 - **Depth** knob (0–100%)
 - **Destination** selector routing the LFO to one of 13 modulation targets:
 

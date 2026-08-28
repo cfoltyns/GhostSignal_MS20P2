@@ -70,6 +70,15 @@ private:
     // Update tape delay time knob visibility based on time mode
     void updateTimeKnobVisibility();
 
+    // Apply the current SYNC toggle state to the given LFO (0..3):
+    //  - sync ON: rate snaps to the 18 tempo divisions (value >= 0.5)
+    //  - sync OFF: rate runs free, MS timed (value < 0.5)
+    void applyLfoSyncMode (int lfoIndex);
+
+    // Update the rate knob's center label: tempo division when synced,
+    // current ms period when free-running.
+    void refreshLfoRateLabel (int lfoIndex);
+
     // Update EnvDisplay from parameter values (two-way sync)
     void syncEnvDisplays();
 
@@ -122,9 +131,9 @@ private:
     // ── FILTER ────────────────────────────────────────────────────────────────
     Panel       filterPanel { "FILTER" };
     LabeledKnob hpfCutoff   { "HPF Cut" };
-    LabeledKnob hpfRes      { "RES" };
+    LabeledKnob hpfRes      { "HPF RES" };
     LabeledKnob lpfCutoff   { "LPF Cut" };
-    LabeledKnob lpfRes      { "RES" };
+    LabeledKnob lpfRes      { "LPF RES" };
     LabeledKnob lpfDrive    { "LPF Drv" };
     juce::Rectangle<int> filterSeparatorBounds;
 
@@ -157,6 +166,7 @@ private:
     // ── LFO 1 ─────────────────────────────────────────────────────────────────
     Panel          lfo1Panel   { "LFO1" };
     juce::ComboBox lfo1Waveform;
+    juce::TextButton lfo1Sync   { "SYNC" };
     LabeledKnob    lfo1Rate    { "Rate" };
     LabeledKnob    lfo1Depth   { "Depth" };
     juce::ComboBox lfo1Dest;
@@ -165,6 +175,7 @@ private:
     // ── LFO 2 ─────────────────────────────────────────────────────────────────
     Panel          lfo2Panel   { "LFO2" };
     juce::ComboBox lfo2Waveform;
+    juce::TextButton lfo2Sync  { "SYNC" };
     LabeledKnob    lfo2Rate    { "Rate" };
     LabeledKnob    lfo2Depth   { "Depth" };
     juce::ComboBox lfo2Dest;
@@ -173,6 +184,7 @@ private:
     // ── LFO 3 ─────────────────────────────────────────────────────────────────
     Panel          lfo3Panel   { "LFO3" };
     juce::ComboBox lfo3Waveform;
+    juce::TextButton lfo3Sync  { "SYNC" };
     LabeledKnob    lfo3Rate    { "Rate" };
     LabeledKnob    lfo3Depth   { "Depth" };
     juce::ComboBox lfo3Dest;
@@ -181,6 +193,7 @@ private:
     // ── LFO 4 ─────────────────────────────────────────────────────────────────
     Panel          lfo4Panel   { "LFO4" };
     juce::ComboBox lfo4Waveform;
+    juce::TextButton lfo4Sync  { "SYNC" };
     LabeledKnob    lfo4Rate    { "Rate" };
     LabeledKnob    lfo4Depth   { "Depth" };
     juce::ComboBox lfo4Dest;

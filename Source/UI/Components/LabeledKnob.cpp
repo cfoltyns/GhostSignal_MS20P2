@@ -26,6 +26,37 @@ LabeledKnob::LabeledKnob (const juce::String& labelText)
     addAndMakeVisible (label);
 
     slider.addListener (this);
+
+    // Centre text overlay: added AFTER the slider so it paints on top of the
+    // knob body. Non-intercepting so drag still reaches the slider.
+    centerLabel.setJustificationType (juce::Justification::centred);
+    centerLabel.setEditable (false);
+    centerLabel.setInterceptsMouseClicks (false, false);
+    centerLabel.setColour (juce::Label::textColourId, GhostSignalLookAndFeel::accent);
+    centerLabel.setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
+    centerLabel.setColour (juce::Label::outlineColourId, juce::Colours::transparentBlack);
+    centerLabel.setVisible (false);
+    addAndMakeVisible (centerLabel);
+}
+
+void LabeledKnob::setCenterText (const juce::String& text)
+{
+    centerText = text;
+    centerLabel.setText (text, juce::dontSendNotification);
+    centerLabel.setVisible (text.isNotEmpty());
+    // Tell the LookAndFeel not to draw the raw parameter value (e.g. "0"/"1")
+    // in the knob centre while our own centre text is displayed.
+    slider.getProperties().set ("hideCenterValue", text.isNotEmpty());
+    repaint();
+}
+
+void LabeledKnob::clearCenterText()
+{
+    centerText = {};
+    centerLabel.setText ({}, juce::dontSendNotification);
+    centerLabel.setVisible (false);
+    slider.getProperties().set ("hideCenterValue", false);
+    repaint();
 }
 
 void LabeledKnob::setLabel (const juce::String& text)
@@ -36,7 +67,7 @@ void LabeledKnob::setLabel (const juce::String& text)
 void LabeledKnob::setTextValues (const juce::StringArray& texts, const float* values, int numValues)
 {
     textValues = texts;
-    numTextValues = juce::jmin (numValues, 8);
+    numTextValues = juce::jmin (numValues, 24);
     for (int i = 0; i < numTextValues; ++i)
         textValuePositions[i] = values[i];
     showTextValues = (numTextValues > 0);
@@ -51,7 +82,7 @@ void LabeledKnob::clearTextValues()
 
 void LabeledKnob::setSnapToValues (const float* values, int numValues)
 {
-    numSnapValues = juce::jmin (numValues, 8);
+    numSnapValues = juce::jmin (numValues, 24);
     for (int i = 0; i < numSnapValues; ++i)
         snapValues[i] = values[i];
 
@@ -59,6 +90,18 @@ void LabeledKnob::setSnapToValues (const float* values, int numValues)
     {
         slider.setRange (snapValues[0], snapValues[numSnapValues - 1], 1.0);
     }
+}
+
+void LabeledKnob::setSnapValuesOnly (const float* values, int numValues)
+{
+    numSnapValues = juce::jmin (numValues, 24);
+    for (int i = 0; i < numSnapValues; ++i)
+        snapValues[i] = values[i];
+}
+
+void LabeledKnob::clearSnapValues()
+{
+    numSnapValues = 0;
 }
 
 void LabeledKnob::paint (juce::Graphics& g)
@@ -77,6 +120,15 @@ void LabeledKnob::paint (juce::Graphics& g)
         // Match the rotary arc used in PluginEditor: 1.25 pi to 2.75 pi (270 deg sweep)
         const float rotaryStart = juce::MathConstants<float>::pi * 1.25f;
         const float rotaryEnd   = juce::MathConstants<float>::pi * 2.75f;
+
+        // Size the labels from the available arc spacing so that many divisions
+        // around a small knob (e.g. LFO tempo divisions) stay tiny and readable.
+        const float labelRadius = radiusOuter + 12.0f;
+        const float arcSpan     = rotaryEnd - rotaryStart;
+        const float pxPerLabel  = labelRadius * arcSpan / (float) juce::jmax (1, numTextValues);
+        const float labelW      = juce::jmax (9.0f, juce::jmin (26.0f, pxPerLabel * 0.72f));
+        const float labelH      = juce::jmax (8.0f,  juce::jmin (20.0f, labelW * 0.55f));
+        const float labelFont   = juce::jmax (4.5f, juce::jmin (7.0f, labelW * 0.40f));
 
         for (int i = 0; i < numTextValues; ++i)
         {
@@ -97,49 +149,26 @@ void LabeledKnob::paint (juce::Graphics& g)
             g.drawLine (tickX1, tickY1, tickX2, tickY2, 1.2f);
 
             // Position the label slightly outside the arc
-            const float labelRadius = radiusOuter + 14.0f;
             const float textX = centreX + std::cos (angle) * labelRadius;
             const float textY = centreY + std::sin (angle) * labelRadius;
 
-            const float textW = 32.0f;
-            const float textH = 16.0f;
-
             // Background pill for readability
             g.setColour (juce::Colour (0xBB000000));
-            g.fillRoundedRectangle (textX - textW * 0.5f - 1.0f,
-                                    textY - textH * 0.5f - 1.0f,
-                                    textW + 2.0f, textH + 2.0f, 3.0f);
+            g.fillRoundedRectangle (textX - labelW * 0.5f - 1.0f,
+                                    textY - labelH * 0.5f - 1.0f,
+                                    labelW + 2.0f, labelH + 2.0f, 3.0f);
 
             g.setColour (GhostSignalLookAndFeel::textPrimary);
-            g.setFont (GhostSignalLookAndFeel::getKnobLabelFont (sliderBounds.getWidth()));
+            g.setFont (juce::Font (juce::FontOptions ((float) labelFont, juce::Font::bold)));
             g.drawText (textValues[i],
-                        juce::Rectangle<float> (textX - textW * 0.5f, textY - textH * 0.5f, textW, textH),
+                        juce::Rectangle<float> (textX - labelW * 0.5f, textY - labelH * 0.5f, labelW, labelH),
                         juce::Justification::centred, false);
         }
     }
 
-    // Draw center text (if set) - used for mode/value display in the knob center
-    if (centerText.isNotEmpty())
-    {
-        const juce::Rectangle<int> sliderBounds = slider.getBounds();
-        const float cx = (float) sliderBounds.getCentreX();
-        const float cy = (float) sliderBounds.getCentreY();
-        const float fontSize = juce::jlimit (8.0f, 14.0f, sliderBounds.getWidth() * 0.12f);
-
-        // Background pill
-        const float textW = fontSize * centerText.length() * 0.7f;
-        const float textH = fontSize * 1.3f;
-        g.setColour (juce::Colour (0xBB000000));
-        g.fillRoundedRectangle (cx - textW * 0.5f - 2.0f, cy - textH * 0.5f - 1.0f,
-                                textW + 4.0f, textH + 2.0f, 3.0f);
-        g.setColour (GhostSignalLookAndFeel::accent);
-        g.setFont (juce::Font (juce::FontOptions (fontSize, juce::Font::bold)));
-        g.drawText (centerText,
-                    juce::Rectangle<float> (cx - textW * 0.5f, cy - textH * 0.5f, textW, textH),
-                    juce::Justification::centred, false);
-    }
-    // Draw amber LED indicator in the center of the knob (only if no center text)
-    else if (ledActive)
+    // Draw amber LED indicator in the center of the knob (only if no center text —
+    // the centre text itself is drawn by the centerLabel overlay, above the slider)
+    if (centerText.isEmpty() && ledActive)
     {
         const juce::Rectangle<int> sliderBounds = slider.getBounds();
         const float cx = (float) sliderBounds.getCentreX();
@@ -191,10 +220,15 @@ void LabeledKnob::resized()
 
     slider.setBounds (knobX, knobY, knobSize, knobSize);
 
+    // Centre the text overlay over the knob body so division / ms readouts
+    // (set via setCenterText) sit in the middle of the knob.
+    const int centerH = juce::jmax (12, (int) (knobSize * 0.24f));
+    centerLabel.setBounds (knobX + 2, knobY + (knobSize - centerH) / 2, knobSize - 4, centerH);
+    centerLabel.setFont (juce::Font (juce::FontOptions (
+        juce::jlimit (9.0f, 14.0f, (float) knobSize * 0.18f), juce::Font::bold)));
+
     const int labelY = knobAreaH + gap;
     label.setBounds (0, labelY, totalW, labelH);
-
-    const float fontSize = juce::jlimit (10.0f, 15.0f, (float) totalH * 0.17f);
     label.setFont (GhostSignalLookAndFeel::getKnobLabelFont (knobSize));
 }
 

@@ -58,12 +58,11 @@ namespace dsp
                 break;
             }
             case Waveform::square:
-            {
-                sample = (p < MathConstants<float>::pi) ? 1.0f : -1.0f;
-                break;
-            }
             case Waveform::pulse:
             {
+                // Both Square and Pulse honours the PWM parameter so the pulse
+                // width knob is meaningful for either waveform. With pwm == 0.5
+                // this reproduces the classic 50% square wave.
                 sample = (p < params.pwm * MathConstants<float>::twoPi) ? 1.0f : -1.0f;
                 break;
             }

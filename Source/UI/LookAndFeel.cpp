@@ -225,7 +225,9 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
     }
 
     // ── Value text in center ────────────────────────────────────────────────────
-    if (enabled)
+    // Skipped when the knob displays its own centre text (e.g. LFO rate knob
+    // showing a tempo division or ms period), signalled via a slider property.
+    if (enabled && ! (bool) slider.getProperties().getWithDefault ("hideCenterValue", false))
     {
         const float fontSize = jlimit (7.0f, 11.0f, centerR * 1.4f);
         g.setColour (textPrimary);

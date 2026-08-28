@@ -25,6 +25,11 @@ public:
     void clearTextValues();
 
     void setSnapToValues (const float* values, int numValues);
+    // Fill the snap list without touching the slider range/interval.
+    // Used for the LFO sync toggle so snapping works across the full
+    // 0..1 param range while only the sync half is quantised.
+    void setSnapValuesOnly (const float* values, int numValues);
+    void clearSnapValues();
 
     void setLedActive (bool active) { ledActive = active; repaint(); }
     bool isLedActive() const { return ledActive; }
@@ -34,8 +39,8 @@ public:
     void setMinKnobSize (int minSize) { minKnobSize = minSize; }
     int getMinKnobSize() const { return minKnobSize; }
 
-    void setCenterText (const juce::String& text) { centerText = text; repaint(); }
-    void clearCenterText() { centerText = {}; repaint(); }
+    void setCenterText (const juce::String& text);
+    void clearCenterText();
     void setAutoCenterText (bool autoUpdate) { autoCenterText = autoUpdate; updateCenterTextFromValue(); }
 
     // Modulation indicator — draws a small dot on the knob perimeter showing
@@ -57,15 +62,17 @@ private:
     int minKnobSize { 48 };
 
     juce::StringArray textValues;
-    float textValuePositions[8];
+    float textValuePositions[24];   // supports up to 24 steps (e.g. LFO tempo divisions)
     int numTextValues { 0 };
     bool showTextValues { false };
 
-    float snapValues[8];
+    float snapValues[24];           // supports up to 24 discrete knob positions
     int numSnapValues { 0 };
 
     bool ledActive { false };
     juce::String centerText;
+    juce::Label  centerLabel;   // overlay — paints ABOVE the slider so the
+                                // knob body can't cover the centre text
     bool autoCenterText { false };
 
     // Modulation indicator state

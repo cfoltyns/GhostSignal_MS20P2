@@ -152,50 +152,29 @@ void AudioEngine::process(juce::AudioBuffer<float> &buffer,
             bpm = posInfo->getBpm().orFallback(120.0);
     }
 
-    // Convert sync division index to frequency in Hz
-    // Index 0 = "Off" (free-running), 1-6 = straight, 7-12 = dotted, 13-18 = triplet
-    const auto syncIndexToHz = [bpm](int syncIdx) -> float {
-        if (syncIdx <= 0) return -1.0f; // Off = free-running
-        // Base note lengths in beats (1/1 = 1 beat, 1/2 = 0.5, etc.)
-        static const float baseBeats[] = {
-            1.0f, 0.5f, 0.25f, 0.125f, 0.0625f, 0.03125f  // 1/1, 1/2, 1/4, 1/8, 1/16, 1/32
-        };
-        int type = (syncIdx - 1) / 6;  // 0=straight, 1=triplet, 2=dotted
-        int idx  = (syncIdx - 1) % 6;  // 0-5
-        if (idx < 0 || idx >= 6) return -1.0f;
-        float beats = baseBeats[idx];
-        if (type == 1)      beats *= 2.0f / 3.0f;  // triplet
-        else if (type == 2) beats *= 1.5f;          // dotted
-        float freq = (float)(bpm / 60.0 * (1.0 / beats));
-        return freq;
-    };
-
-    // Combined rate+sync: rate param is 0.0-1.0
-    // 0.0-0.5 = free-running rate (0.01 Hz to 20 Hz)
-    // 0.5-1.0 = tempo-synced divisions (19 sync choices)
-    const auto resolveLfoRate = [bpm, &syncIndexToHz](float normRate) -> std::pair<float, bool> {
-        if (normRate < 0.5f)
+    // Combined rate+sync: the SYNC toggle decides the meaning of the rate knob.
+    // When sync is OFF the whole 0..1 rate maps to the free-running MS period.
+    // When sync is ON  the whole 0..1 rate maps to the 12 tempo divisions.
+    const auto resolveLfoRate = [bpm](float normRate, bool sync) -> std::pair<float, bool> {
+        if (! sync)
         {
-            // Free-running: map 0.0-0.5 to 0.01-20 Hz
-            float t = normRate / 0.5f;
-            float freq = 0.01f + t * (20.0f - 0.01f);
-            return { freq, false };
+            // Free-running: MS timed — map 0.0-1.0 to a log-scaled period
+            // (1 ms .. 10 s) and convert to Hz for the DSP.
+            return { Parameters::lfoFreeRateHz (normRate), false };
         }
         else
         {
-            // Tempo sync: map 0.5-1.0 to sync divisions 1-18
-            float t = (normRate - 0.5f) / 0.5f;
-            int syncIdx = 1 + (int) std::round (t * 17.0f);
-            syncIdx = juce::jlimit (1, 18, syncIdx);
-            float syncHz = syncIndexToHz (syncIdx);
-            return { syncHz, true };
+            // Tempo sync: map 0.0-1.0 to one of the 12 divisions.
+            const int syncIdx = Parameters::lfoSyncIndexForValue (normRate);
+            return { Parameters::lfoSyncDivisionHz (syncIdx, bpm), true };
         }
     };
 
     // LFO1
     vp.lfo1.waveform   = mapLfoWave (getChoice(Parameters::paramLFO1Waveform));
     {
-        auto [rate, sync] = resolveLfoRate (getFloat(Parameters::paramLFO1Rate));
+        auto [rate, sync] = resolveLfoRate (getFloat(Parameters::paramLFO1Rate),
+                                            getFloat(Parameters::paramLFO1Sync) > 0.5f);
         vp.lfo1.rate = rate;
         vp.lfo1.tempoSync = sync;
     }
@@ -205,7 +184,8 @@ void AudioEngine::process(juce::AudioBuffer<float> &buffer,
     // LFO2
     vp.lfo2.waveform   = mapLfoWave (getChoice(Parameters::paramLFO2Waveform));
     {
-        auto [rate, sync] = resolveLfoRate (getFloat(Parameters::paramLFO2Rate));
+        auto [rate, sync] = resolveLfoRate (getFloat(Parameters::paramLFO2Rate),
+                                            getFloat(Parameters::paramLFO2Sync) > 0.5f);
         vp.lfo2.rate = rate;
         vp.lfo2.tempoSync = sync;
     }
@@ -215,7 +195,8 @@ void AudioEngine::process(juce::AudioBuffer<float> &buffer,
     // LFO3
     vp.lfo3.waveform   = mapLfoWave (getChoice(Parameters::paramLFO3Waveform));
     {
-        auto [rate, sync] = resolveLfoRate (getFloat(Parameters::paramLFO3Rate));
+        auto [rate, sync] = resolveLfoRate (getFloat(Parameters::paramLFO3Rate),
+                                            getFloat(Parameters::paramLFO3Sync) > 0.5f);
         vp.lfo3.rate = rate;
         vp.lfo3.tempoSync = sync;
     }
@@ -225,7 +206,8 @@ void AudioEngine::process(juce::AudioBuffer<float> &buffer,
     // LFO4
     vp.lfo4.waveform   = mapLfoWave (getChoice(Parameters::paramLFO4Waveform));
     {
-        auto [rate, sync] = resolveLfoRate (getFloat(Parameters::paramLFO4Rate));
+        auto [rate, sync] = resolveLfoRate (getFloat(Parameters::paramLFO4Rate),
+                                            getFloat(Parameters::paramLFO4Sync) > 0.5f);
         vp.lfo4.rate = rate;
         vp.lfo4.tempoSync = sync;
     }

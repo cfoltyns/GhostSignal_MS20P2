@@ -89,24 +89,28 @@ juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createParameterL
     addFloat  (paramLFO1Rate,     "LFO1 Rate", 0.0f, 1.0f, 0.25f, 0.001f, 0.5f);
     addFloat  (paramLFO1Depth,    "LFO1 Depth", 0.0f, 1.0f, 0.5f);
     addChoice (paramLFO1Dest,    "LFO1 Destination", Parameters::lfoDestinationChoices, 0);
+    addFloat  (paramLFO1Sync,    "LFO1 Sync", 0.0f, 1.0f, 0.0f, 1.0f);
 
     // -- LFO 2 --
     addChoice (paramLFO2Waveform, "LFO2 Waveform", Parameters::lfoWaveformChoices, 0);
     addFloat  (paramLFO2Rate,     "LFO2 Rate", 0.0f, 1.0f, 0.25f, 0.001f, 0.5f);
     addFloat  (paramLFO2Depth,    "LFO2 Depth", 0.0f, 1.0f, 0.5f);
     addChoice (paramLFO2Dest,    "LFO2 Destination", Parameters::lfoDestinationChoices, 0);
+    addFloat  (paramLFO2Sync,    "LFO2 Sync", 0.0f, 1.0f, 0.0f, 1.0f);
 
     // -- LFO 3 --
     addChoice (paramLFO3Waveform, "LFO3 Waveform", Parameters::lfoWaveformChoices, 0);
     addFloat  (paramLFO3Rate,     "LFO3 Rate", 0.0f, 1.0f, 0.25f, 0.001f, 0.5f);
     addFloat  (paramLFO3Depth,    "LFO3 Depth", 0.0f, 1.0f, 0.5f);
     addChoice (paramLFO3Dest,    "LFO3 Destination", Parameters::lfoDestinationChoices, 0);
+    addFloat  (paramLFO3Sync,    "LFO3 Sync", 0.0f, 1.0f, 0.0f, 1.0f);
 
     // -- LFO 4 --
     addChoice (paramLFO4Waveform, "LFO4 Waveform", Parameters::lfoWaveformChoices, 0);
     addFloat  (paramLFO4Rate,     "LFO4 Rate", 0.0f, 1.0f, 0.25f, 0.001f, 0.5f);
     addFloat  (paramLFO4Depth,    "LFO4 Depth", 0.0f, 1.0f, 0.5f);
     addChoice (paramLFO4Dest,    "LFO4 Destination", Parameters::lfoDestinationChoices, 0);
+    addFloat  (paramLFO4Sync,    "LFO4 Sync", 0.0f, 1.0f, 0.0f, 1.0f);
 
     // -- EG1 (Delay / Attack / Release) --
     addFloat (paramEg1Delay,   "EG1 Delay",   0.0f,   5.0f, 0.0f,  0.001f, 0.5f);

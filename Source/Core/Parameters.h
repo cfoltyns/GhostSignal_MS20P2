@@ -7,6 +7,8 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <array>
+#include <cmath>
 
 // Forward declarations for structured parameter groups (to be expanded later)
 struct VoiceParameter;
@@ -75,24 +77,105 @@ public:
     inline static const juce::String paramLFO1Rate      { "lfo1_rate" };
     inline static const juce::String paramLFO1Depth     { "lfo1_depth" };
     inline static const juce::String paramLFO1Dest      { "lfo1_dest" };
+    inline static const juce::String paramLFO1Sync      { "lfo1_sync" };
 
     // ── LFO2 ────────────────────────────────────────────────────────────────────
     inline static const juce::String paramLFO2Waveform  { "lfo2_waveform" };
     inline static const juce::String paramLFO2Rate      { "lfo2_rate" };
     inline static const juce::String paramLFO2Depth     { "lfo2_depth" };
     inline static const juce::String paramLFO2Dest      { "lfo2_dest" };
+    inline static const juce::String paramLFO2Sync      { "lfo2_sync" };
 
     // ── LFO3 ────────────────────────────────────────────────────────────────────
     inline static const juce::String paramLFO3Waveform  { "lfo3_waveform" };
     inline static const juce::String paramLFO3Rate      { "lfo3_rate" };
     inline static const juce::String paramLFO3Depth     { "lfo3_depth" };
     inline static const juce::String paramLFO3Dest      { "lfo3_dest" };
+    inline static const juce::String paramLFO3Sync      { "lfo3_sync" };
 
     // ── LFO4 ────────────────────────────────────────────────────────────────────
     inline static const juce::String paramLFO4Waveform  { "lfo4_waveform" };
     inline static const juce::String paramLFO4Rate      { "lfo4_rate" };
     inline static const juce::String paramLFO4Depth     { "lfo4_depth" };
     inline static const juce::String paramLFO4Dest      { "lfo4_dest" };
+    inline static const juce::String paramLFO4Sync      { "lfo4_sync" };
+
+    // ── LFO rate: MS timed ↔ tempo-synced divisions ─────────────────────────────
+    // When the SYNC toggle is OFF the Rate knob is "MS timed": the normalised
+    // rate (0..1) maps log-scaled onto a period in milliseconds.
+    // When SYNC is ON the knob snaps to 12 tempo divisions — 1/4, 1/8, 1/16,
+    // 1/32 with straight / triplet (2/3 duration) / dotted (1.5×) variants.
+    inline static constexpr float lfoRateMsMin { 1.0f };       // fastest free period (~1000 Hz)
+    inline static constexpr float lfoRateMsMax { 10000.0f };   // slowest free period (0.1 Hz)
+
+    // Normalised LFO rate (0..1 in free / ms mode) → free-running period (ms).
+    static inline float lfoFreePeriodMs (float normRate)
+    {
+        const float t = juce::jlimit (0.0f, 1.0f, normRate);
+        return lfoRateMsMin * (float) std::pow (lfoRateMsMax / lfoRateMsMin, (double) t);
+    }
+
+    // Normalised LFO rate (free half) → frequency in Hz for the DSP.
+    static inline float lfoFreeRateHz (float normRate)
+    {
+        return 1000.0f / lfoFreePeriodMs (normRate);
+    }
+
+    // One tempo-synced division: display label + note length in beats.
+    struct LfoSyncDivision
+    {
+        const char* label;
+        float beats;
+    };
+
+    static constexpr int lfoSyncDivisionCount = 12;
+
+    // Ordered slowest → fastest: 1/4, 1/8, 1/16, 1/32, each with straight,
+    // triplet (×2/3) and dotted (×1.5) variants.
+    static const inline std::array<LfoSyncDivision, lfoSyncDivisionCount>& lfoSyncDivisions()
+    {
+        static const std::array<LfoSyncDivision, lfoSyncDivisionCount> d =
+        {{
+            { "1/4",   0.25f },
+            { "1/4T",  0.25f * 2.0f / 3.0f },
+            { "1/4.",  0.25f * 1.5f },
+            { "1/8",   0.125f },
+            { "1/8T",  0.125f * 2.0f / 3.0f },
+            { "1/8.",  0.125f * 1.5f },
+            { "1/16",  0.0625f },
+            { "1/16T", 0.0625f * 2.0f / 3.0f },
+            { "1/16.", 0.0625f * 1.5f },
+            { "1/32",  0.03125f },
+            { "1/32T", 0.03125f * 2.0f / 3.0f },
+            { "1/32.", 0.03125f * 1.5f },
+        }};
+        return d;
+    }
+
+    static inline const char* lfoSyncLabel (int index)
+    {
+        return lfoSyncDivisions()[juce::jlimit (0, lfoSyncDivisionCount - 1, index)].label;
+    }
+
+    // Normalised parameter value (0..1) for a division index (0..11).
+    static inline float lfoSyncParamValue (int index)
+    {
+        return (float) juce::jlimit (0, lfoSyncDivisionCount - 1, index) / (float) (lfoSyncDivisionCount - 1);
+    }
+
+    // Nearest division index for a normalised rate value (0..1).
+    static inline int lfoSyncIndexForValue (float normValue)
+    {
+        return juce::jlimit (0, lfoSyncDivisionCount - 1,
+                             (int) std::round (juce::jlimit (0.0f, 1.0f, normValue) * (float) (lfoSyncDivisionCount - 1)));
+    }
+
+    // Frequency in Hz for a division index at the given tempo (BPM).
+    static inline float lfoSyncDivisionHz (int index, double bpm)
+    {
+        const float beats = lfoSyncDivisions()[juce::jlimit (0, lfoSyncDivisionCount - 1, index)].beats;
+        return (float) (bpm / 60.0 * (1.0 / beats));
+    }
 
     // ── EG1 (Delay / Attack / Release — pitch mod source) ─────────────────────
     inline static const juce::String paramEg1Delay   { "eg1_delay" };
