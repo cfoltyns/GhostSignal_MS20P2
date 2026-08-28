@@ -343,6 +343,10 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     vcfEnvDisplay.onReleaseChanged = makeTimeCallback(Parameters::paramEnv1Release, 5.0f);
 
     updatePulseWidthVisibility();
+    // Adopt the initial PW mode without animating (state comes from the
+    // restored patch, not a user interaction this session).
+    osc1PwModeShown = osc1PulseWidth.isVisible();
+    osc2PwModeShown = osc2PulseWidth.isVisible();
     updateTimeKnobVisibility();
 
     // ── Octave knobs snap to whole octave steps ──────────────────────────────
@@ -381,10 +385,12 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     };
 
     setKnobSensitivity (osc1PulseWidth.getSlider());
+    osc1PulseWidth.getSlider().setTextValueSuffix ("%");
     osc1PulseWidth.setMinKnobSize (40);
     setKnobSensitivity (osc1Octave.getSlider());
     setKnobSensitivity (osc1Tune.getSlider());
     setKnobSensitivity (osc2PulseWidth.getSlider());
+    osc2PulseWidth.getSlider().setTextValueSuffix ("%");
     osc2PulseWidth.setMinKnobSize (40);
     setKnobSensitivity (osc2Octave.getSlider());
     setKnobSensitivity (osc2Tune.getSlider());
@@ -611,33 +617,121 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
 
         const int titleH  = osc1Panel.getTitleAreaHeight();
         const int padH    = juce::jmax (6, (int) (totalH * 0.035f));
+        // Dedicated vertical breathing room — larger than the horizontal
+        // padding so the combo / PW knob / Octave-Tune stack doesn't feel
+        // cramped inside the oscillator panel.
+        const int vGap    = juce::jmax (10, (int) (totalH * 0.06f));
+        // Whole-stack upward shift (design feedback): everything in the
+        // oscillator section sits this many px higher than the old layout.
+        constexpr int stackUpShift = 40;
 
-        // PW knob is smaller so it fits in the gap below the pulldown
+        // PW knob is smaller so it fits in the gap below the pulldown.
+        // Match the knob's min size to the available diameter — the default
+        // 48px minimum would overflow the small widget and clip the top.
         const int pwKnobD   = juce::jlimit (30, 42, (int) (mediumKnobD * 0.70f));
         const int pwWidgetH = pwKnobD + 18;
+        osc1PulseWidth.setMinKnobSize (pwKnobD);
 
-        // Row 1: Waveform ComboBox — always full width across the top
-        const int row1Top = titleH + padH;
-        const int comboH  = juce::jmax (16, (int) ((totalH - row1Top - padH) * 0.16f));
-        osc1Waveform.setBounds (curX + padH, y + row1Top, vco1W - 2 * padH, comboH);
 
-        // Bottom: Octave and Tune knobs, anchored to the bottom of the panel
-        const int bottomPadY = y + totalH - padH;
-        const int octH       = juce::jmax (50, (int) (mediumKnobD * 1.2f));
+        // Design nudges: open up the stack — the combo rises an extra 30px
+        // past the strict minimum and the PW knob sits 10px higher, so the
+        // knobs don't feel cramped against each other.
+        constexpr int comboExtraUp = 30;
+        constexpr int pwExtraUp    = 10;
+
+        const bool pwVisible  = osc1PulseWidth.isVisible();
+        const bool pwWasShown = osc1PwModeShown;
+
+        const int comboH = juce::jmax (16, (int) ((totalH - titleH - 2 * vGap) * 0.16f));
+
+        // Bottom: Octave and Tune knobs — anchored near the bottom of the
+        // panel, lifted by stackUpShift so the whole stack sits higher.
+        const int octHBase = juce::jmax (50, (int) (mediumKnobD * 1.2f));
+        // Vertical budget guard: on short windows the full stack (title,
+        // menu, PW knob, Octave/Tune row, bottom pad) doesn't fit, which
+        // used to let the waveform menu drop below the Octave/Tune knobs.
+        // Shrink the knob row first, then the bottom lift, so the menu is
+        // guaranteed to stay above the knobs at any editor size.
+        int octH        = octHBase;
+        int bottomShift = stackUpShift;
+        auto minStackH  = [&] (int oh, int sh)
+        {
+            return titleH + vGap / 2 + comboH
+                 + (pwVisible ? 2 * vGap + pwWidgetH + comboExtraUp : vGap)
+                 + oh + vGap + sh;
+        };
+        while (minStackH (octH, bottomShift) > totalH && (octH > 40 || bottomShift > 0))
+        {
+            if (octH > 40) --octH;
+            else           --bottomShift;
+        }
+        const int bottomPadY = y + totalH - vGap - bottomShift;
         const int row2Top    = bottomPadY - octH;
+
+        // Row 1: Waveform ComboBox. By default it sits vertically centred in
+        // the panel body. When the PW knob is shown it slides up only as far
+        // as needed to make room for the knob between it and the Octave/Tune
+        // row (clamped so it never rises into the panel title area).
+        // comboTopMax keeps the menu above the Octave/Tune row on short
+        // windows where the lifted knob row would otherwise rise past it.
+        const int comboTopMax = juce::jmax (titleH + vGap / 2, row2Top - comboH - vGap);
+        // Centred position lifted by stackUpShift, clamped so the combo can
+        // never rise into the panel title area nor sink below the knob row.
+        const int comboTopCentered = juce::jlimit (titleH + vGap / 2, comboTopMax,
+                                                   titleH + (totalH - titleH - comboH) / 2 - stackUpShift);
+
+        int row1Top = comboTopCentered;
+        if (pwVisible)
+        {
+            const int comboTopNeeded = row2Top - 2 * vGap - pwWidgetH - comboH - comboExtraUp;
+            row1Top = juce::jlimit (titleH + vGap / 2, comboTopCentered, comboTopNeeded);
+        }
+        // Hard guarantee: the menu never drops below the Octave/Tune row.
+        row1Top = juce::jmin (row1Top, comboTopMax);
+
+        const juce::Rectangle<int> comboTarget (curX + padH, y + row1Top,
+                                                vco1W - 2 * padH, comboH);
+
+        // Animate the combo between its centred and made-room positions only
+        // when the PW visibility mode changes — plain resizes snap directly.
+        auto& animator = juce::Desktop::getInstance().getAnimator();
+        if (pwVisible != pwWasShown)
+            animator.animateComponent (&osc1Waveform, comboTarget, 1.0f, 200, false, 0.0, 0.0);
+        else
+            osc1Waveform.setBounds (comboTarget);
+
         const R row2Area (curX + padH, row2Top, vco1W - 2 * padH, bottomPadY - row2Top);
         placeKnobRow ({ &osc1Octave, &osc1Tune }, row2Area, mediumKnobD);
 
-        // Pulse-width knob: centered in the gap between the pulldown and the
-        // Octave/Tune knobs — visible only when Pulse is selected.
-        if (osc1PulseWidth.isVisible())
+        // Pulse-width knob: centred in the gap between the pulldown and the
+        // Octave/Tune knobs — visible only when Pulse is selected. Nudged
+        // down a couple of px so the top edge of the knob is never tight.
+        // Fades in/out when the waveform mode changes.
+        if (pwVisible)
         {
-            const int pwBandTop = y + row1Top + comboH + padH;
-            const int pwBandH   = row2Top - pwBandTop;
-            const int pwY       = pwBandTop + juce::jmax (0, (pwBandH - pwWidgetH) / 2);
+            const int pwBandTop = y + row1Top + comboH + vGap;
+            // Sit the knob (comboExtraUp - pwExtraUp) px below the band top —
+            // i.e. pwExtraUp px higher than the old tight layout — but never
+            // low enough to crowd the Octave/Tune row below.
+            const int pwTopMin = pwBandTop;
+            const int pwTopMax = juce::jmax (pwTopMin, row2Top - pwWidgetH - vGap);
+            const int pwY      = juce::jlimit (pwTopMin, pwTopMax,
+                                               pwBandTop + (comboExtraUp - pwExtraUp));
             const int pwX       = curX + padH + (vco1W - 2 * padH - pwWidgetH) / 2;
             osc1PulseWidth.setBounds (pwX, pwY, pwWidgetH, pwWidgetH);
+
+            if (! pwWasShown)
+            {
+                osc1PulseWidth.setAlpha (0.0f);
+                animator.fadeIn (&osc1PulseWidth, 200);
+            }
         }
+        else if (pwWasShown)
+        {
+            animator.fadeOut (&osc1PulseWidth, 200); // hides itself on completion
+        }
+
+        osc1PwModeShown = pwVisible;
     }
 
     curX += vco1W + gap;
@@ -649,33 +743,121 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
 
         const int titleH  = osc2Panel.getTitleAreaHeight();
         const int padH    = juce::jmax (6, (int) (totalH * 0.035f));
-
-        // PW knob is smaller so it fits in the gap below the pulldown
+        // PW knob is smaller so it fits in the gap below the pulldown.
+        // Match the knob's min size to the available diameter — the default
+        // 48px minimum would overflow the small widget and clip the top.
         const int pwKnobD   = juce::jlimit (30, 42, (int) (mediumKnobD * 0.70f));
         const int pwWidgetH = pwKnobD + 18;
+        osc2PulseWidth.setMinKnobSize (pwKnobD);
 
-        // Row 1: Waveform ComboBox — always full width across the top
-        const int row1Top = titleH + padH;
-        const int comboH  = juce::jmax (16, (int) ((totalH - row1Top - padH) * 0.16f));
-        osc2Waveform.setBounds (curX + padH, y + row1Top, vco2W - 2 * padH, comboH);
 
-        // Bottom: Octave and Tune knobs, anchored to the bottom of the panel
-        const int bottomPadY = y + totalH - padH;
-        const int octH       = juce::jmax (50, (int) (mediumKnobD * 1.2f));
+        // Dedicated vertical breathing room — larger than the horizontal
+        // padding so the combo / PW knob / Octave-Tune stack doesn't feel
+        // cramped inside the oscillator panel.
+        const int vGap    = juce::jmax (10, (int) (totalH * 0.06f));
+        // Whole-stack upward shift (design feedback): everything in the
+        // oscillator section sits this many px higher than the old layout.
+        constexpr int stackUpShift = 40;
+
+        // Design nudges: open up the stack — the combo rises an extra 30px
+        // past the strict minimum and the PW knob sits 10px higher, so the
+        // knobs don't feel cramped against each other.
+        constexpr int comboExtraUp = 30;
+        constexpr int pwExtraUp    = 10;
+
+        const bool pwVisible  = osc2PulseWidth.isVisible();
+        const bool pwWasShown = osc2PwModeShown;
+
+        const int comboH = juce::jmax (16, (int) ((totalH - titleH - 2 * vGap) * 0.16f));
+
+        // Bottom: Octave and Tune knobs — anchored near the bottom of the
+        // panel, lifted by stackUpShift so the whole stack sits higher.
+        const int octHBase = juce::jmax (50, (int) (mediumKnobD * 1.2f));
+        // Vertical budget guard: on short windows the full stack (title,
+        // menu, PW knob, Octave/Tune row, bottom pad) doesn't fit, which
+        // used to let the waveform menu drop below the Octave/Tune knobs.
+        // Shrink the knob row first, then the bottom lift, so the menu is
+        // guaranteed to stay above the knobs at any editor size.
+        int octH        = octHBase;
+        int bottomShift = stackUpShift;
+        auto minStackH  = [&] (int oh, int sh)
+        {
+            return titleH + vGap / 2 + comboH
+                 + (pwVisible ? 2 * vGap + pwWidgetH + comboExtraUp : vGap)
+                 + oh + vGap + sh;
+        };
+        while (minStackH (octH, bottomShift) > totalH && (octH > 40 || bottomShift > 0))
+        {
+            if (octH > 40) --octH;
+            else           --bottomShift;
+        }
+        const int bottomPadY = y + totalH - vGap - bottomShift;
         const int row2Top    = bottomPadY - octH;
+
+        // Row 1: Waveform ComboBox. By default it sits vertically centred in
+        // the panel body. When the PW knob is shown it slides up only as far
+        // as needed to make room for the knob between it and the Octave/Tune
+        // row (clamped so it never rises into the panel title area).
+        // comboTopMax keeps the menu above the Octave/Tune row on short
+        // windows where the lifted knob row would otherwise rise past it.
+        const int comboTopMax = juce::jmax (titleH + vGap / 2, row2Top - comboH - vGap);
+        // Centred position lifted by stackUpShift, clamped so the combo can
+        // never rise into the panel title area nor sink below the knob row.
+        const int comboTopCentered = juce::jlimit (titleH + vGap / 2, comboTopMax,
+                                                   titleH + (totalH - titleH - comboH) / 2 - stackUpShift);
+
+        int row1Top = comboTopCentered;
+        if (pwVisible)
+        {
+            const int comboTopNeeded = row2Top - 2 * vGap - pwWidgetH - comboH - comboExtraUp;
+            row1Top = juce::jlimit (titleH + vGap / 2, comboTopCentered, comboTopNeeded);
+        }
+        // Hard guarantee: the menu never drops below the Octave/Tune row.
+        row1Top = juce::jmin (row1Top, comboTopMax);
+
+        const juce::Rectangle<int> comboTarget (curX + padH, y + row1Top,
+                                                vco2W - 2 * padH, comboH);
+
+        // Animate the combo between its centred and made-room positions only
+        // when the PW visibility mode changes — plain resizes snap directly.
+        auto& animator = juce::Desktop::getInstance().getAnimator();
+        if (pwVisible != pwWasShown)
+            animator.animateComponent (&osc2Waveform, comboTarget, 1.0f, 200, false, 0.0, 0.0);
+        else
+            osc2Waveform.setBounds (comboTarget);
+
         const R row2Area (curX + padH, row2Top, vco2W - 2 * padH, bottomPadY - row2Top);
         placeKnobRow ({ &osc2Octave, &osc2Tune }, row2Area, mediumKnobD);
 
-        // Pulse-width knob: centered in the gap between the pulldown and the
-        // Octave/Tune knobs — visible only when Pulse is selected.
-        if (osc2PulseWidth.isVisible())
+        // Pulse-width knob: centred in the gap between the pulldown and the
+        // Octave/Tune knobs — visible only when Pulse is selected. Nudged
+        // down a couple of px so the top edge of the knob is never tight.
+        // Fades in/out when the waveform mode changes.
+        if (pwVisible)
         {
-            const int pwBandTop = y + row1Top + comboH + padH;
-            const int pwBandH   = row2Top - pwBandTop;
-            const int pwY       = pwBandTop + juce::jmax (0, (pwBandH - pwWidgetH) / 2);
+            const int pwBandTop = y + row1Top + comboH + vGap;
+            // Sit the knob (comboExtraUp - pwExtraUp) px below the band top —
+            // i.e. pwExtraUp px higher than the old tight layout — but never
+            // low enough to crowd the Octave/Tune row below.
+            const int pwTopMin = pwBandTop;
+            const int pwTopMax = juce::jmax (pwTopMin, row2Top - pwWidgetH - vGap);
+            const int pwY      = juce::jlimit (pwTopMin, pwTopMax,
+                                               pwBandTop + (comboExtraUp - pwExtraUp));
             const int pwX       = curX + padH + (vco2W - 2 * padH - pwWidgetH) / 2;
             osc2PulseWidth.setBounds (pwX, pwY, pwWidgetH, pwWidgetH);
+
+            if (! pwWasShown)
+            {
+                osc2PulseWidth.setAlpha (0.0f);
+                animator.fadeIn (&osc2PulseWidth, 200);
+            }
         }
+        else if (pwWasShown)
+        {
+            animator.fadeOut (&osc2PulseWidth, 200); // hides itself on completion
+        }
+
+        osc2PwModeShown = pwVisible;
     }
 
     curX += vco2W + gap;
@@ -1282,8 +1464,8 @@ void PluginEditor::randomizePatch()
 
     randomizeFloat (Parameters::paramOsc1Tune, -50.0f, 50.0f);
     randomizeFloat (Parameters::paramOsc2Tune, -50.0f, 50.0f);
-    randomizeFloat (Parameters::paramOsc1PulseWidth, 0.1f, 0.9f);
-    randomizeFloat (Parameters::paramOsc2PulseWidth, 0.1f, 0.9f);
+    randomizeFloat (Parameters::paramOsc1PulseWidth, 10.0f, 90.0f);
+    randomizeFloat (Parameters::paramOsc2PulseWidth, 10.0f, 90.0f);
     randomizeFloat (Parameters::paramOsc1Octave, -1.0f, 1.0f);
     randomizeFloat (Parameters::paramOsc2Octave, -1.0f, 1.0f);
     randomizeFloat (Parameters::paramOsc1Gain, 0.3f, 1.0f);
@@ -1474,7 +1656,7 @@ void PluginEditor::timerCallback()
     auto getPwNorm = [&](const juce::String& id) -> float
     {
         if (auto* p = apvts.getRawParameterValue (id))
-            return juce::jlimit (0.0f, 1.0f, (p->load() - 0.01f) / 0.98f);
+            return juce::jlimit (0.0f, 1.0f, p->load() / 100.0f); // percent -> 0..1
         return 0.5f;
     };
 
@@ -1507,10 +1689,10 @@ void PluginEditor::timerCallback()
             knob.setLedActive (std::abs (p->load() - defaultVal) > 0.01f);
     };
 
-    setKnobLed (osc1PulseWidth, Parameters::paramOsc1PulseWidth, 0.5f);
+    setKnobLed (osc1PulseWidth, Parameters::paramOsc1PulseWidth, 50.0f);
     setKnobLed (osc1Octave,     Parameters::paramOsc1Octave, 0.0f);
     setKnobLed (osc1Tune,       Parameters::paramOsc1Tune, 0.0f);
-    setKnobLed (osc2PulseWidth, Parameters::paramOsc2PulseWidth, 0.5f);
+    setKnobLed (osc2PulseWidth, Parameters::paramOsc2PulseWidth, 50.0f);
     setKnobLed (osc2Octave,     Parameters::paramOsc2Octave, 0.0f);
     setKnobLed (osc2Tune,       Parameters::paramOsc2Tune, 0.0f);
     setKnobLed (subOctave,      Parameters::paramSubOctave, 0.0f);

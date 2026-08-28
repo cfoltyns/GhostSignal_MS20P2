@@ -41,7 +41,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createParameterL
     // -- VCO1 --
     addChoice (paramOsc1Waveform, "VCO1 Waveform",
                StringArray { "Triangle", "Saw", "Square", "Pulse", "Sine", "Noise", "Super Saw" }, 1);
-    addFloat  (paramOsc1PulseWidth, "VCO1 Pulse Width", 0.01f, 0.99f, 0.5f);
+    addFloat  (paramOsc1PulseWidth, "VCO1 Pulse Width", 0.0f, 100.0f, 50.0f, 1.0f);
     addChoice (paramOsc1Scale, "VCO1 Scale", StringArray { "32'", "16'", "8'", "4'" }, 2);
     addFloat  (paramOsc1Octave, "VCO1 Octave", -2.0f, 2.0f, 0.0f, 1.0f);
     addFloat  (paramOsc1Gain, "VCO1 Gain", 0.0f, 1.0f, 0.8f);
@@ -50,7 +50,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createParameterL
     // -- VCO2 --
     addChoice (paramOsc2Waveform, "VCO2 Waveform",
                StringArray { "Triangle", "Saw", "Square", "Pulse", "Sine", "Noise", "Super Saw" }, 1);
-    addFloat  (paramOsc2PulseWidth, "VCO2 Pulse Width", 0.01f, 0.99f, 0.5f);
+    addFloat  (paramOsc2PulseWidth, "VCO2 Pulse Width", 0.0f, 100.0f, 50.0f, 1.0f);
     addFloat  (paramOsc2Pitch, "VCO2 Pitch", -24.0f, 24.0f, 0.0f);
     addChoice (paramOsc2Scale, "VCO2 Scale", StringArray { "32'", "16'", "8'", "4'" }, 2);
     addFloat  (paramOsc2Octave, "VCO2 Octave", -3.0f, 3.0f, 0.0f, 1.0f);

@@ -166,7 +166,7 @@ void LabeledKnob::paint (juce::Graphics& g)
         }
     }
 
-    // Draw amber LED indicator in the center of the knob (only if no center text —
+    // Draw accent LED indicator in the center of the knob (only if no center text —
     // the centre text itself is drawn by the centerLabel overlay, above the slider)
     if (centerText.isEmpty() && ledActive)
     {

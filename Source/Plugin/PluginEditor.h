@@ -98,6 +98,11 @@ private:
     LogoComponent logoComponent;
 
     // ── OSC 1 ─────────────────────────────────────────────────────────────────
+    // Last laid-out PW visibility per oscillator — used to detect when the
+    // Pulse/non-Pulse mode changes so the combo/PW transitions can animate.
+    bool osc1PwModeShown = false;
+    bool osc2PwModeShown = false;
+
     Panel          osc1Panel     { "VCO1" };
     juce::ComboBox osc1Waveform;
     LabeledKnob    osc1PulseWidth{ "PW" };
