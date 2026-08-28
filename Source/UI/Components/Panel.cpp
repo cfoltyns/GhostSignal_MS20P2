@@ -69,6 +69,8 @@ void Panel::paint (juce::Graphics& g)
     }
 
     // ── Title bar strip ────────────────────────────────────────────────────────
+    // Skipped entirely for panels without a title (titleText empty).
+    if (titleText.isNotEmpty())
     {
         juce::Path titlePath;
         titlePath.addRoundedRectangle (0.0f, 0.0f, w, titleH,
@@ -76,12 +78,12 @@ void Panel::paint (juce::Graphics& g)
                                        true, true, false, false);
         g.setColour (GhostSignalLookAndFeel::accent);
         g.fillPath (titlePath);
-    }
 
-    // Title bar bottom divider
-    g.setColour (juce::Colour (0xFF080808));
-    g.drawHorizontalLine (static_cast<int> (titleH),
-                          accentW, w);
+        // Title bar bottom divider
+        g.setColour (juce::Colour (0xFF080808));
+        g.drawHorizontalLine (static_cast<int> (titleH),
+                              accentW, w);
+    }
 
     // ── Left accent stripe ────────────────────────────────────────────────────
     {
@@ -121,6 +123,10 @@ void Panel::resized()
 
 int Panel::getTitleAreaHeight() const
 {
+    // Panels without a title have no title bar at all.
+    if (titleText.isEmpty())
+        return 0;
+
     // Proportional: slightly taller for larger panels, min 24px
     return juce::jlimit (24, 32, (int) (getHeight() * 0.13f));
 }

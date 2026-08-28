@@ -210,6 +210,9 @@ void LabeledKnob::resized()
     const int totalH = getHeight();
     const int totalW = getWidth();
 
+    // NOTE: the label area is reserved even when the label text is empty
+    // (e.g. the noise type knob, whose value text lives in the knob centre).
+    // This keeps the knob diameter identical to labelled knobs.
     const int labelH = juce::jmax (16, (int) (totalH * labelHeightProportion));
     const int gap = juce::jmax (2, (int) (totalH * 0.04f));
     const int knobAreaH = totalH - labelH - gap;

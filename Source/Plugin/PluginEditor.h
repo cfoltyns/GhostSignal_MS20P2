@@ -70,6 +70,9 @@ private:
     // Update tape delay time knob visibility based on time mode
     void updateTimeKnobVisibility();
 
+    // Show the selected noise colour in the centre of the noise type knob
+    void updateNoiseTypeCenterText();
+
     // Apply the current SYNC toggle state to the given LFO (0..3):
     //  - sync ON: rate snaps to the 18 tempo divisions (value >= 0.5)
     //  - sync OFF: rate runs free, MS timed (value < 0.5)
@@ -103,6 +106,9 @@ private:
     bool osc1PwModeShown = false;
     bool osc2PwModeShown = false;
 
+    // Last noise type index shown in the knob centre (avoids redundant repaints)
+    int lastNoiseTypeIndex = -1;
+
     Panel          osc1Panel     { "VCO1" };
     juce::ComboBox osc1Waveform;
     LabeledKnob    osc1PulseWidth{ "PW" };
@@ -121,9 +127,10 @@ private:
     LabeledKnob subOctave  { "Octave" };
 
     // ── NOISE ─────────────────────────────────────────────────────────────────
+    // No knob label — the selected noise colour name is shown in the
+    // centre of the knob itself (no labels around the knob).
     Panel       noisePanel { "NOISE" };
-    juce::ComboBox noiseType { "Noise Color" };
-    LabeledKnob noiseGain { "Level" };
+    LabeledKnob noiseTypeKnob { "" };
 
 
     // ── MIXER ─────────────────────────────────────────────────────────────────
@@ -131,6 +138,7 @@ private:
     LabeledKnob mixerVco1Level { "VCO 1 Lvl" };
     LabeledKnob mixerVco2Level { "VCO 2 Lvl" };
     LabeledKnob mixerSubLevel  { "Sub Lvl" };
+    LabeledKnob noiseGain      { "Noise Lvl" };
     LabeledKnob mixerDrive { "Drive" };
 
     // ── FILTER ────────────────────────────────────────────────────────────────
@@ -236,7 +244,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   osc2OctaveAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   osc2TuneAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   subOctaveAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> noiseTypeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> noiseTypeAttachment;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   noiseGainAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   mixerVco1LevelAttachment;

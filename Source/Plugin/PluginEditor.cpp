@@ -100,16 +100,22 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     // ── SUB / NOISE ───────────────────────────────────────────────────────────
     addAndMakeVisible (subPanel);
     addAndMakeVisible (subOctave);
-    noiseType.addItemList (Parameters::noiseTypeChoices, 1);
     addAndMakeVisible (noisePanel);
-    addAndMakeVisible (noiseType);
-    addAndMakeVisible (noiseGain);
+
+    // Noise type knob: a discrete selector stepping through the noise colours.
+    // The selected colour name is shown in the centre of the knob — no tick
+    // marks or labels are drawn around the knob itself.
+    noiseTypeKnob.getSlider().setRange (0.0, (double) Parameters::noiseTypeChoices.size() - 1.0, 1.0);
+    updateNoiseTypeCenterText();
+    noiseTypeKnob.getSlider().onValueChange = [this] { updateNoiseTypeCenterText(); };
+    addAndMakeVisible (noiseTypeKnob);
 
     // ── MIXER ─────────────────────────────────────────────────────────────────
     addAndMakeVisible (mixerPanel);
     addAndMakeVisible (mixerVco1Level);
     addAndMakeVisible (mixerVco2Level);
     addAndMakeVisible (mixerSubLevel);
+    addAndMakeVisible (noiseGain);
     addAndMakeVisible (mixerDrive);
 
     // ── FILTER ────────────────────────────────────────────────────────────────
@@ -259,7 +265,7 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     osc2OctaveAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramOsc2Octave,   osc2Octave.getSlider());
     osc2TuneAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramOsc2Tune,     osc2Tune.getSlider());
     subOctaveAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramSubOctave,    subOctave.getSlider());
-    noiseTypeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramNoiseType,    noiseType);
+    noiseTypeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramNoiseType,    noiseTypeKnob.getSlider());
     noiseGainAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramNoiseGain,    noiseGain.getSlider());
     mixerVco1LevelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramMixerVco1Level, mixerVco1Level.getSlider());
     mixerVco2LevelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramMixerVco2Level, mixerVco2Level.getSlider());
@@ -882,16 +888,11 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
                          subH - subTitleH - padH);
         placeKnobRow ({ &subOctave }, subArea, mediumKnobD);
 
-        const int noiseComboH = juce::jmax (18, (int) (noiseH * 0.12f));
-        const int noiseKnobAreaTop = noiseTitleH + padH + noiseComboH + padH;
-
-        noiseType.setBounds (curX + padH, y + subH + gap + noiseTitleH + padH,
-                             subW - 2 * padH, noiseComboH);
-
-        const R noiseArea (curX + padH, y + subH + gap + noiseKnobAreaTop,
+        // Noise panel: the Type knob is the only control — centre it.
+        const R noiseArea (curX + padH, y + subH + gap + noiseTitleH + padH,
                            subW - 2 * padH,
-                           noiseH - noiseKnobAreaTop - padH);
-        placeKnobRow ({ &noiseGain }, noiseArea, mediumKnobD);
+                           noiseH - noiseTitleH - padH * 2);
+        placeKnobRow ({ &noiseTypeKnob }, noiseArea, mediumKnobD);
     }
 
     curX += subW + gap;
@@ -905,7 +906,7 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
         const int padH   = juce::jmax (4, (int) (totalH * 0.04f));
         const int innerH = totalH - titleH - padH * 2;
 
-        // Three rows: 2 knobs, 2 knobs, 1 knob
+        // Three rows: 2 knobs, 2 knobs, 2 knobs
         const int rowH = (innerH - 2 * gap) / 3;
         const int bigKnobD = (int) (smallKnobD * 1.15f);
 
@@ -913,13 +914,13 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
         const R topRow (curX + padH, y + titleH + padH, mixerW - 2 * padH, rowH);
         placeKnobRow ({ &mixerVco1Level, &mixerVco2Level }, topRow, bigKnobD);
 
-        // Middle row: Sub Lvl, Drive
+        // Middle row: Sub Lvl, Noise Lvl
         const R midRow (curX + padH, y + titleH + padH + rowH + gap, mixerW - 2 * padH, rowH);
-        placeKnobRow ({ &mixerSubLevel, &mixerDrive }, midRow, smallKnobD);
+        placeKnobRow ({ &mixerSubLevel, &noiseGain }, midRow, smallKnobD);
 
-        // Bottom row: LPF Drive (centered)
+        // Bottom row: Drive, LPF Drive
         const R botRow (curX + padH, y + titleH + padH + 2 * (rowH + gap), mixerW - 2 * padH, rowH);
-        placeKnobRow ({ &lpfDrive }, botRow, smallKnobD);
+        placeKnobRow ({ &mixerDrive, &lpfDrive }, botRow, smallKnobD);
     }
 
     curX += mixerW + gap;
@@ -1356,6 +1357,23 @@ void PluginEditor::updateTimeKnobVisibility()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// updateNoiseTypeCenterText() — show the selected noise colour in the centre
+// of the noise type knob (no labels are drawn around the knob).
+// ─────────────────────────────────────────────────────────────────────────────
+
+void PluginEditor::updateNoiseTypeCenterText()
+{
+    const int numTypes = Parameters::noiseTypeChoices.size();
+    const int idx = juce::jlimit (0, numTypes - 1,
+                                  (int) (noiseTypeKnob.getSlider().getValue() + 0.5f));
+    if (idx == lastNoiseTypeIndex)
+        return;
+
+    lastNoiseTypeIndex = idx;
+    noiseTypeKnob.setCenterText (Parameters::noiseTypeChoices[idx]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // applyLfoSyncMode() — enforce the SYNC toggle for one LFO
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1595,6 +1613,7 @@ void PluginEditor::timerCallback()
 
     updatePulseWidthVisibility();
     updateTimeKnobVisibility();
+    updateNoiseTypeCenterText();
 
     auto& apvts = audioProcessor.getAPVTS();
     const bool tapeEnabled = (apvts.getRawParameterValue (Parameters::paramTapeDelayEnable) != nullptr)
