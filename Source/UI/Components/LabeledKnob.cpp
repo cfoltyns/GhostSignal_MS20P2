@@ -59,6 +59,22 @@ void LabeledKnob::clearCenterText()
     repaint();
 }
 
+void LabeledKnob::setCenterValueVisible (bool visible)
+{
+    // The GhostSignalLookAndFeel draws the raw parameter value in the knob
+    // centre unless the "hideCenterValue" slider property is set.
+    slider.getProperties().set ("hideCenterValue", ! visible);
+    repaint();
+}
+
+void LabeledKnob::setCenterValueAsKnobPercent()
+{
+    // The centre readout (LookAndFeel -> Slider::getTextFromValue) now shows
+    // the knob position mapped to 0..100 instead of the raw parameter value.
+    slider.showAsKnobPercent = true;
+    repaint();
+}
+
 void LabeledKnob::setLabel (const juce::String& text)
 {
     label.setText (text, juce::dontSendNotification);

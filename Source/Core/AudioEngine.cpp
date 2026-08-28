@@ -69,7 +69,7 @@ void AudioEngine::process(juce::AudioBuffer<float> &buffer,
   
     // Osc1
     vp.osc1.waveform = (::dsp::Waveform)juce::jlimit(
-        0, 6, getChoice(Parameters::paramOsc1Waveform));
+        0, 7, getChoice(Parameters::paramOsc1Waveform));
     vp.osc1.pwm = getFloat(Parameters::paramOsc1PulseWidth) / 100.0f; // percent -> 0..1 duty cycle
     vp.osc1.octave = (int)getFloat(Parameters::paramOsc1Octave);
     vp.osc1.gain = getFloat(Parameters::paramOsc1Gain);
@@ -77,7 +77,7 @@ void AudioEngine::process(juce::AudioBuffer<float> &buffer,
     
     // Osc2
     vp.osc2.waveform = (::dsp::Waveform)juce::jlimit(
-        0, 6, getChoice(Parameters::paramOsc2Waveform));
+        0, 7, getChoice(Parameters::paramOsc2Waveform));
     vp.osc2.pwm = getFloat(Parameters::paramOsc2PulseWidth) / 100.0f; // percent -> 0..1 duty cycle
     vp.osc2.octave = (int)getFloat(Parameters::paramOsc2Octave);
     vp.osc2.gain = getFloat(Parameters::paramOsc2Gain);

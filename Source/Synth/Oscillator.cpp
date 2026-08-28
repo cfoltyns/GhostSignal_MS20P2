@@ -78,6 +78,19 @@ namespace dsp
                 sample = s / 7.0f;
                 break;
             }
+            case Waveform::ringMod:
+            {
+                // Ring modulation: a carrier sine at the note frequency
+                // multiplied by an internal sine modulator at 1.5x frequency.
+                // The inharmonic ratio produces the classic bell-like ring
+                // mod character. The modulator phase is derived from the main
+                // phase so it stays locked to the note and remains continuous
+                // across the 2pi phase wrap (sin(1.5 * 2pi) == sin(0) == 0).
+                const float carrier    = std::sin (p);
+                const float modulator  = std::sin (1.5f * p);
+                sample = carrier * modulator;
+                break;
+            }
             case Waveform::superSquare:
             {
                 float s = 0.0f;

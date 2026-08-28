@@ -161,7 +161,7 @@ void WaveformKnob::WaveformSlider::paint (juce::Graphics& g)
         const float range = (float) (getMaximum() - getMinimum());
         if (range > 0.0f)
         {
-            const int numWaves = 7;
+            const int numWaves = 8;
             const int idx = juce::jlimit (0, numWaves - 1,
                                           (int) std::round ((v - (float) getMinimum()) / range * (numWaves - 1)));
             waveIndex = idx;
@@ -274,6 +274,17 @@ void WaveformKnob::WaveformSlider::drawWaveformIcon (juce::Graphics& g,
                     sum += saw * 0.2f;
                 }
                 addSample (x, midY - sum * amp);
+            }
+            break;
+        }
+        case 7: // Ring Mod (carrier sine x 1.5x sine modulator)
+        {
+            for (int i = 0; i <= segments; ++i)
+            {
+                const float x = x0 + (x1 - x0) * i / (float) segments;
+                const float phase = (x - x0) / (x1 - x0) * juce::MathConstants<float>::twoPi;
+                const float ring = std::sin (phase) * std::sin (1.5f * phase);
+                addSample (x, midY - ring * amp);
             }
             break;
         }

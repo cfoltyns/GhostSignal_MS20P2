@@ -253,6 +253,19 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     updateRandomizeButtonAppearance();
     randomizeButton.onClick = [this] { toggleRandomizeLock(); };
 
+    // ── HIDE RAW VALUES IN KNOB CENTRES ────────────────────────────────────────
+    // These knobs read better without the numeric parameter value in the
+    // middle: both ADSR panels, Glide, LFO depths, filter resonance, and
+    // every knob in the mixer section.
+    for (auto* knob : { &ampAttack, &ampDecay, &ampSustain, &ampRelease,
+                        &env1Attack, &env1Decay, &env1Sustain, &env1Release,
+                        &glideTime,
+                        &lfo1Depth, &lfo2Depth, &lfo3Depth, &lfo4Depth,
+                        &hpfRes, &lpfRes,
+                        &mixerVco1Level, &mixerVco2Level, &mixerSubLevel,
+                        &noiseGain, &mixerDrive, &lpfDrive })
+        knob->setCenterValueVisible (false);
+
     // ── Parameter attachments ─────────────────────────────────────────────────
     auto& apvts = audioProcessor.getAPVTS();
 
@@ -276,6 +289,12 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     lpfCutoffAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramLPFCutoff,    lpfCutoff.getSlider());
     lpfResAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramLPFRes,       lpfRes.getSlider());
     lpfDriveAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramLPFDrive,     lpfDrive.getSlider());
+
+    // Filter cutoff knobs display their position as 0..100 (0 = far left,
+    // 100 = far right) instead of Hz. Purely a display change — the audio
+    // path still works in Hz.
+    hpfCutoff.setCenterValueAsKnobPercent();
+    lpfCutoff.setCenterValueAsKnobPercent();
     env1AttackAttachment  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramEnv1Attack,   env1Attack.getSlider());
     env1DecayAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramEnv1Decay,    env1Decay.getSlider());
     env1SustainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>   (apvts, Parameters::paramEnv1Sustain,  env1Sustain.getSlider());
@@ -1470,12 +1489,12 @@ void PluginEditor::randomizePatch()
         }
     };
 
-    // Waveforms (use full range 0..6 for 7 choices)
-    std::uniform_int_distribution<int> waveDist (0, 6);
+    // Waveforms (use full range 0..7 for 8 choices)
+    std::uniform_int_distribution<int> waveDist (0, 7);
     if (auto* p = apvts.getParameter (Parameters::paramOsc1Waveform))
-        p->setValueNotifyingHost ((float) waveDist (rng) / 6.0f);
+        p->setValueNotifyingHost ((float) waveDist (rng) / 7.0f);
     if (auto* p = apvts.getParameter (Parameters::paramOsc2Waveform))
-        p->setValueNotifyingHost ((float) waveDist (rng) / 6.0f);
+        p->setValueNotifyingHost ((float) waveDist (rng) / 7.0f);
 
     // Noise type (choice parameter — use randomizeChoice, not randomizeFloat)
     randomizeChoice (Parameters::paramNoiseType, Parameters::noiseTypeChoices.size());

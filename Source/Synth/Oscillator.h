@@ -20,6 +20,7 @@ namespace dsp
         sine,
         noise,
         superSaw,
+        ringMod,
         superSquare
     };
 

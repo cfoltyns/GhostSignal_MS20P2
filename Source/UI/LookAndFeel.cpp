@@ -229,12 +229,33 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
     // showing a tempo division or ms period), signalled via a slider property.
     if (enabled && ! (bool) slider.getProperties().getWithDefault ("hideCenterValue", false))
     {
-        const float fontSize = jlimit (7.0f, 11.0f, centerR * 1.4f);
-        g.setColour (textPrimary);
-        g.setFont (Font (FontOptions (fontSize, Font::bold)));
-        g.drawText (slider.getTextFromValue (slider.getValue()),
-                    Rectangle<float> (cx - centerR, cy - centerR, centerR * 2.0f, centerR * 2.0f),
-                    Justification::centred, false);
+        const String centreText = slider.getTextFromValue (slider.getValue());
+
+        if (centreText.isNotEmpty())
+        {
+            float fontSize = jlimit (7.0f, 11.0f, centerR * 1.4f);
+            g.setColour (textPrimary);
+            g.setFont (Font (FontOptions (fontSize, Font::bold)));
+
+            // Shrink the font so multi-digit values (e.g. "100") still fit
+            // inside the centre cap instead of being clipped.
+            const float maxTextW = centerR * 3.0f;
+            while (fontSize > 6.0f
+                   && GlyphArrangement::getStringWidth (g.getCurrentFont(), centreText) > maxTextW)
+            {
+                fontSize -= 0.5f;
+                g.setFont (Font (FontOptions (fontSize, Font::bold)));
+            }
+
+            // The text area is wider than the cap itself so 3-digit values
+            // aren't clipped; the text may overhang slightly onto the knob body.
+            g.drawFittedText (centreText,
+                              Rectangle<int> (roundToInt (cx - maxTextW * 0.5f),
+                                              roundToInt (cy - centerR),
+                                              roundToInt (maxTextW),
+                                              roundToInt (centerR * 2.0f)),
+                              Justification::centred, 1, 0.7f);
+        }
     }
 }
 

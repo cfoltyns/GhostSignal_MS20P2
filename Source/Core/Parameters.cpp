@@ -6,7 +6,7 @@
 
 #include "Parameters.h"
 
-const juce::StringArray Parameters::oscWaveformChoices = { "Triangle", "Saw", "Square", "Pulse", "Sine", "Noise", "Super Saw" };
+const juce::StringArray Parameters::oscWaveformChoices = { "Triangle", "Saw", "Square", "Pulse", "Sine", "Noise", "Super Saw", "Ring Mod" };
 const juce::StringArray Parameters::lfoWaveformChoices = { "Sine", "Triangle", "Square", "Sawtooth", "Random" };
 const juce::StringArray Parameters::lfoDestinationChoices = { "Off", "VCO1 Pitch", "VCO2 Pitch", "VCO1 PWM", "VCO2 PWM", "VCO1 Tune", "VCO2 Tune", "VCO1 Level", "VCO2 Level", "Filter Cutoff", "Filter Res", "Amp Gain", "Pan" };
 
@@ -40,7 +40,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createParameterL
 
     // -- VCO1 --
     addChoice (paramOsc1Waveform, "VCO1 Waveform",
-               StringArray { "Triangle", "Saw", "Square", "Pulse", "Sine", "Noise", "Super Saw" }, 1);
+               StringArray { "Triangle", "Saw", "Square", "Pulse", "Sine", "Noise", "Super Saw", "Ring Mod" }, 1);
     addFloat  (paramOsc1PulseWidth, "VCO1 Pulse Width", 0.0f, 100.0f, 50.0f, 1.0f);
     addChoice (paramOsc1Scale, "VCO1 Scale", StringArray { "32'", "16'", "8'", "4'" }, 2);
     addFloat  (paramOsc1Octave, "VCO1 Octave", -2.0f, 2.0f, 0.0f, 1.0f);
@@ -49,7 +49,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createParameterL
 
     // -- VCO2 --
     addChoice (paramOsc2Waveform, "VCO2 Waveform",
-               StringArray { "Triangle", "Saw", "Square", "Pulse", "Sine", "Noise", "Super Saw" }, 1);
+               StringArray { "Triangle", "Saw", "Square", "Pulse", "Sine", "Noise", "Super Saw", "Ring Mod" }, 1);
     addFloat  (paramOsc2PulseWidth, "VCO2 Pulse Width", 0.0f, 100.0f, 50.0f, 1.0f);
     addFloat  (paramOsc2Pitch, "VCO2 Pitch", -24.0f, 24.0f, 0.0f);
     addChoice (paramOsc2Scale, "VCO2 Scale", StringArray { "32'", "16'", "8'", "4'" }, 2);
