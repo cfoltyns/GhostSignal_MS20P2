@@ -24,6 +24,7 @@
 #include "../UI/Components/LogoComponent.h"
 #include "../UI/Components/EnvDisplay.h"
 #include "../UI/Components/LfoDisplay.h"
+#include "../UI/Components/OscilloscopeDisplay.h"
 
 class PluginEditor  : public juce::AudioProcessorEditor,
                       private juce::Timer
@@ -125,6 +126,11 @@ private:
     // ── SUB ───────────────────────────────────────────────────────────────────
     Panel       subPanel   { "SUB" };
     LabeledKnob subOctave  { "Octave" };
+
+    // Oscilloscope screens (animated waveform displays for the osc sections)
+    OscilloscopeDisplay osc1Scope;
+    OscilloscopeDisplay osc2Scope;
+    OscilloscopeDisplay subScope;
 
     // ── NOISE ─────────────────────────────────────────────────────────────────
     // No knob label — the selected noise colour name is shown in the

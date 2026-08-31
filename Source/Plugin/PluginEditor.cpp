@@ -118,6 +118,7 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (osc1PulseWidth);
     addAndMakeVisible (osc1Octave);
     addAndMakeVisible (osc1Tune);
+    addAndMakeVisible (osc1Scope);
     osc1Waveform.addItemList (Parameters::oscWaveformChoices, 1);
     osc1Waveform.onChange = [this]
     {
@@ -131,6 +132,7 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (osc2PulseWidth);
     addAndMakeVisible (osc2Octave);
     addAndMakeVisible (osc2Tune);
+    addAndMakeVisible (osc2Scope);
     osc2Waveform.addItemList (Parameters::oscWaveformChoices, 1);
     osc2Waveform.onChange = [this]
     {
@@ -141,6 +143,7 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     // ── SUB / NOISE ───────────────────────────────────────────────────────────
     addAndMakeVisible (subPanel);
     addAndMakeVisible (subOctave);
+    addAndMakeVisible (subScope);
     addAndMakeVisible (noisePanel);
 
     // Noise type knob: a discrete selector stepping through the noise colours.
@@ -794,6 +797,21 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
         const R row2Area (curX + padH, row2Top, vco1W - 2 * padH, bottomPadY - row2Top);
         placeKnobRow ({ &osc1Octave, &osc1Tune }, row2Area, mediumKnobD);
 
+        // Oscilloscope screen (LFO-display style) — sits directly ABOVE the
+        // waveform ComboBox, tracking it whenever the combo slides up to make
+        // room for the PW knob; hidden on short windows when there's no room.
+        {
+            const int bodyTop        = y + titleH + vGap / 2;
+            const int comboTop       = y + row1Top;
+            const int gapAboveCombo  = 4;
+            const int avail          = comboTop - bodyTop - gapAboveCombo;
+            const int dH             = juce::jlimit (0, 28, avail);
+            osc1Scope.setVisible (dH >= 14);
+            if (dH >= 14)
+                osc1Scope.setBounds (curX + padH, comboTop - gapAboveCombo - dH,
+                                     vco1W - 2 * padH, dH);
+        }
+
         // Pulse-width knob: centred in the gap between the pulldown and the
         // Octave/Tune knobs — visible only when Pulse is selected. Nudged
         // down a couple of px so the top edge of the knob is never tight.
@@ -920,6 +938,21 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
         const R row2Area (curX + padH, row2Top, vco2W - 2 * padH, bottomPadY - row2Top);
         placeKnobRow ({ &osc2Octave, &osc2Tune }, row2Area, mediumKnobD);
 
+        // Oscilloscope screen (LFO-display style) — sits directly ABOVE the
+        // waveform ComboBox, tracking it whenever the combo slides up to make
+        // room for the PW knob; hidden on short windows when there's no room.
+        {
+            const int bodyTop        = y + titleH + vGap / 2;
+            const int comboTop       = y + row1Top;
+            const int gapAboveCombo  = 4;
+            const int avail          = comboTop - bodyTop - gapAboveCombo;
+            const int dH             = juce::jlimit (0, 28, avail);
+            osc2Scope.setVisible (dH >= 14);
+            if (dH >= 14)
+                osc2Scope.setBounds (curX + padH, comboTop - gapAboveCombo - dH,
+                                     vco2W - 2 * padH, dH);
+        }
+
         // Pulse-width knob: centred in the gap between the pulldown and the
         // Octave/Tune knobs — visible only when Pulse is selected. Nudged
         // down a couple of px so the top edge of the knob is never tight.
@@ -968,9 +1001,17 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
         const int noiseTitleH = noisePanel.getTitleAreaHeight();
         const int padH = juce::jmax (4, (int) (subH * 0.04f));
 
-        const R subArea (curX + padH, y + subTitleH,
-                         subW - 2 * padH,
-                         subH - subTitleH - padH);
+        R subArea (curX + padH, y + subTitleH,
+                   subW - 2 * padH,
+                   subH - subTitleH - padH);
+
+        // Oscilloscope screen (LFO-display style) stacked above the Sub knob.
+        // The sub oscillator is a square wave one octave down — half frequency.
+        const int subDispH = juce::jlimit (14, 26, (int) (subArea.getHeight() * 0.18f));
+        subScope.setVisible (subDispH >= 14);
+        subScope.setBounds (subArea.removeFromTop (subDispH).reduced (2, 0));
+        subArea.removeFromTop (juce::jmax (4, (int) (subH * 0.04f)));
+
         placeKnobRow ({ &subOctave }, subArea, mediumKnobD);
 
         // Noise panel: the Type knob is the only control — centre it.
@@ -1766,6 +1807,44 @@ void PluginEditor::timerCallback()
 
     const float pw1Base = getPwNorm (Parameters::paramOsc1PulseWidth);
     const float pw2Base = getPwNorm (Parameters::paramOsc2PulseWidth);
+
+    // ── Oscilloscope screens ──────────────────────────────────────────────────
+    // Trace scrolls while the synth has active voices; frozen when idle.
+    // Waveform, pulse width AND octave follow the current parameter values.
+    const bool synthActive = audioProcessor.getEngine().getSynthEngine().getNumActiveVoices() > 0;
+
+    // Octave → frequency scaling: an octave shift is a logarithmic change in
+    // frequency. Each octave up doubles the number of visible cycles in the
+    // same time window (the wave "wiggles" twice as often); each octave down
+    // halves them (cycles spread out). The waveform SHAPE never changes —
+    // only how tightly it is compressed across the display.
+    auto octaveCycles = [&] (const juce::String& octId, float baseCycles) -> float
+    {
+        if (auto* p = apvts.getRawParameterValue (octId))
+            return baseCycles * std::pow (2.0f, (float) p->load());
+        return baseCycles;
+    };
+
+    auto syncScope = [&](OscilloscopeDisplay& scope, const juce::String& waveId, float pwNorm,
+                         const juce::String& octId, float baseCycles)
+    {
+        if (auto* p = apvts.getRawParameterValue (waveId))
+            scope.setWaveform ((int) p->load());
+        scope.setPulseWidth (pwNorm);
+        scope.setCycles (octaveCycles (octId, baseCycles));
+        scope.setActive (synthActive);
+        scope.tick();
+    };
+    syncScope (osc1Scope, Parameters::paramOsc1Waveform, pw1Base, Parameters::paramOsc1Octave, 2.0f);
+    syncScope (osc2Scope, Parameters::paramOsc2Waveform, pw2Base, Parameters::paramOsc2Octave, 2.0f);
+
+    // Sub oscillator: fixed square wave, one octave down (half frequency —
+    // hence the 1.0-cycle base instead of the VCOs' 2.0). Its own Octave
+    // knob scales the display the same logarithmic way.
+    subScope.setWaveform (2);
+    subScope.setCycles (octaveCycles (Parameters::paramSubOctave, 1.0f));
+    subScope.setActive (synthActive);
+    subScope.tick();
 
     float pw1Mod = 0.0f, pw2Mod = 0.0f;
     auto addMod = [&](int dest, float phase, int wave, float shape, float depth)
