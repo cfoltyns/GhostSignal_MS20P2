@@ -143,7 +143,6 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     // ── SUB / NOISE ───────────────────────────────────────────────────────────
     addAndMakeVisible (subPanel);
     addAndMakeVisible (subOctave);
-    addAndMakeVisible (subScope);
     addAndMakeVisible (noisePanel);
 
     // Noise type knob: a discrete selector stepping through the noise colours.
@@ -1005,13 +1004,6 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
                    subW - 2 * padH,
                    subH - subTitleH - padH);
 
-        // Oscilloscope screen (LFO-display style) stacked above the Sub knob.
-        // The sub oscillator is a square wave one octave down — half frequency.
-        const int subDispH = juce::jlimit (14, 26, (int) (subArea.getHeight() * 0.18f));
-        subScope.setVisible (subDispH >= 14);
-        subScope.setBounds (subArea.removeFromTop (subDispH).reduced (2, 0));
-        subArea.removeFromTop (juce::jmax (4, (int) (subH * 0.04f)));
-
         placeKnobRow ({ &subOctave }, subArea, mediumKnobD);
 
         // Noise panel: the Type knob is the only control — centre it.
@@ -1837,14 +1829,6 @@ void PluginEditor::timerCallback()
     };
     syncScope (osc1Scope, Parameters::paramOsc1Waveform, pw1Base, Parameters::paramOsc1Octave, 2.0f);
     syncScope (osc2Scope, Parameters::paramOsc2Waveform, pw2Base, Parameters::paramOsc2Octave, 2.0f);
-
-    // Sub oscillator: fixed square wave, one octave down (half frequency —
-    // hence the 1.0-cycle base instead of the VCOs' 2.0). Its own Octave
-    // knob scales the display the same logarithmic way.
-    subScope.setWaveform (2);
-    subScope.setCycles (octaveCycles (Parameters::paramSubOctave, 1.0f));
-    subScope.setActive (synthActive);
-    subScope.tick();
 
     float pw1Mod = 0.0f, pw2Mod = 0.0f;
     auto addMod = [&](int dest, float phase, int wave, float shape, float depth)
