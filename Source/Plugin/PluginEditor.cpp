@@ -52,6 +52,47 @@ namespace
     constexpr float octaveSnapOsc1[] = { -2.0f, -1.0f, 0.0f, 1.0f, 2.0f };
     constexpr float octaveSnapOsc2[] = { -3.0f, -2.0f, -1.0f, 0.0f, 1.0f, 2.0f, 3.0f };
     constexpr float octaveSnapSub[]  = { -3.0f, -2.0f, -1.0f, 0.0f, 1.0f, 2.0f, 3.0f };
+
+    // ── Knob centre-readout formatters ──────────────────────────────────────
+    // Keep every knob's centre value short, unit-consistent and free of
+    // stray decimals regardless of the raw parameter step.
+
+    // Tune knobs: the parameter already IS hundredths of a semitone
+    // (centitones) — show the plain integer.
+    inline juce::String fmtCentitones (double v)
+    {
+        return juce::String (juce::roundToInt (v));
+    }
+
+    // Octave knobs: each octave step shown as 12 semitones (-24..24 etc).
+    inline juce::String fmtSemitones (double v)
+    {
+        return juce::String (juce::roundToInt (v * 12.0));
+    }
+
+    inline juce::String fmtPercentage (double v)
+    {
+        return juce::String (juce::roundToInt (v * 100.0)) + "%";
+    }
+
+    // Percentage value with no unit suffix (mix knob).
+    inline juce::String fmtPercentageNoUnit (double v)
+    {
+        return juce::String (juce::roundToInt (v * 100.0));
+    }
+
+    inline juce::String fmtMilliseconds (double v)
+    {
+        return juce::String (juce::roundToInt (v)) + "ms";
+    }
+
+    // Linear 0..1 gain shown in dB (0 dB = unity/full scale).
+    inline juce::String fmtDecibels (double v)
+    {
+        if (v < 0.001)
+            return "-inf";
+        return juce::String (juce::roundToInt (20.0 * std::log10 (v)));
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -457,6 +498,31 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     setKnobSensitivity (tapeDelaySat.getSlider());
     setKnobSensitivity (tapeDelayWow.getSlider());
     setKnobSensitivity (tapeDelayFlutter.getSlider());
+
+    // ── Consistent knob centre readouts ────────────────────────────────────
+    // Octave knobs display semitone offsets (each octave step = 12 semitones,
+    // e.g. -24 / -12 / 0 / 12 / 24), tune knobs display centitones (hundredths
+    // of a semitone — the raw parameter value) as plain integers.
+    osc1Octave.setCentreValueFormatter (fmtSemitones);
+    osc2Octave.setCentreValueFormatter (fmtSemitones);
+    subOctave.setCentreValueFormatter (fmtSemitones);
+    osc1Tune.setCentreValueFormatter (fmtCentitones);
+    osc2Tune.setCentreValueFormatter (fmtCentitones);
+
+    // Tape delay: ms for time, % for feedback/age/sat/wow/flutter, and a
+    // plain 0..100 number (no unit) for mix.
+    tapeDelayTime.setCentreValueFormatter (fmtMilliseconds);
+    tapeDelayFeedback.setCentreValueFormatter (fmtPercentage);
+    tapeDelayMix.setCentreValueFormatter (fmtPercentageNoUnit);
+    tapeDelayAge.setCentreValueFormatter (fmtPercentage);
+    tapeDelaySat.setCentreValueFormatter (fmtPercentage);
+    tapeDelayWow.setCentreValueFormatter (fmtPercentage);
+    tapeDelayFlutter.setCentreValueFormatter (fmtPercentage);
+
+    // Gain shown in dB (0 dB = unity). Pan is a unitless 0..1 position,
+    // shown as a plain 0..100 number to match the rest of the GUI.
+    ampGain.setCentreValueFormatter (fmtDecibels);
+    pan.setCentreValueFormatter (fmtPercentageNoUnit);
 
     startTimerHz (30);
 }

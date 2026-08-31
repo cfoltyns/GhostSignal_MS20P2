@@ -159,8 +159,7 @@ The interface features a complete redesign with a clean, modern, premium aesthet
 ### Ghost Signal Logo
 
 The header features a custom **LogoComponent** rendering the "ghost signal MS20P"
-identity with a premium circular LED-style accent badge featuring a lightning bolt icon,
-gradient styling, and subtle glow effects.
+identity with simple drop-shadowed text.
 
 ### Current Controls
 

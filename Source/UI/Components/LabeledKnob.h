@@ -10,6 +10,8 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <functional>
+#include <utility>
 
 class LabeledKnob : public juce::Component, private juce::Slider::Listener
 {
@@ -20,6 +22,17 @@ public:
     juce::Slider& getSlider() { return slider; }
     void setLabel (const juce::String& text);
     void setLabelSize (float proportion) { labelHeightProportion = proportion; }
+
+    // Custom formatter for the numeric value drawn in the knob centre.
+    // Receives the raw parameter value and returns the display string
+    // (e.g. "300ms", "50%", "-3", "-24"). When set it takes precedence
+    // over the slider's default value text and keeps readouts consistent
+    // (no long decimals or inconsistent widths).
+    using CentreValueFormatter = std::function<juce::String (double)>;
+    void setCentreValueFormatter (CentreValueFormatter fmt)
+    {
+        slider.setCentreValueFormatter (std::move (fmt));
+    }
 
     void setTextValues (const juce::StringArray& texts, const float* values, int numValues);
     void clearTextValues();
@@ -77,6 +90,14 @@ private:
         PercentValueSlider() = default;
         ~PercentValueSlider() override = default;
 
+        using CentreValueFormatter = std::function<juce::String (double)>;
+
+        void setCentreValueFormatter (CentreValueFormatter fmt)
+        {
+            centreValueFormatter = std::move (fmt);
+            repaint();
+        }
+
         juce::String getTextFromValue (double value) override
         {
             if (showAsKnobPercent)
@@ -88,6 +109,10 @@ private:
                     return "-";
                 return juce::String (percent);
             }
+
+            if (centreValueFormatter)
+                return centreValueFormatter (value);
+
             return juce::Slider::getTextFromValue (value);
         }
 
@@ -104,6 +129,12 @@ private:
         }
 
         bool showAsKnobPercent { false };
+
+    private:
+        // Optional custom centre-readout formatter (raw parameter value →
+        // display string). Falls back to juce::Slider::getTextFromValue when
+        // unset.
+        CentreValueFormatter centreValueFormatter;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PercentValueSlider)
     };

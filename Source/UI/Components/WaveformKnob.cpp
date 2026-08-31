@@ -4,12 +4,13 @@
  * (c) 2026 Ghost Signal
  *
  * Description: Premium rotary waveform selector knob — snaps between waveform
- *              positions, draws the selected waveform icon in the knob center.
- *              Draws the full knob custom-drawn so the waveform icon is always visible.
+ *              positions, draws the selected waveform name in the knob centre.
+ *              Optionally draws waveform icons instead of text when requested.
  */
 
 #include "WaveformKnob.h"
 #include "../LookAndFeel.h"
+#include "../../Core/Parameters.h"
 #include <random>
 
 WaveformKnob::WaveformKnob (const juce::String& labelText)
@@ -28,9 +29,22 @@ WaveformKnob::WaveformKnob (const juce::String& labelText)
     // Set range to 0-1 for normalized choice parameter values
     slider.setRange (0.0, 1.0, 0.001);
 
+    // Center text overlay: added AFTER the slider so it paints on top of the knob body.
+    centerLabel.setJustificationType (juce::Justification::centred);
+    centerLabel.setEditable (false);
+    centerLabel.setInterceptsMouseClicks (false, false);
+    centerLabel.setColour (juce::Label::textColourId, GhostSignalLookAndFeel::textPrimary);
+    centerLabel.setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
+    centerLabel.setColour (juce::Label::outlineColourId, juce::Colours::transparentBlack);
+    centerLabel.setVisible (false);
+    addAndMakeVisible (centerLabel);
+
     // Add listener to trigger callback when waveform changes
     slider.onValueChange = [this]()
     {
+        if (autoCenterText)
+            updateCenterTextFromValue();
+
         if (onWaveformChanged)
             onWaveformChanged();
     };
@@ -51,7 +65,75 @@ void WaveformKnob::setSnapToValues (const float* values, int numValues)
         slider.setRange (snapValues[0], snapValues[numSnapValues - 1], 0.001);
 }
 
-void WaveformKnob::paint (juce::Graphics& g)
+void WaveformKnob::setCentreValueFormatter (CentreValueFormatter fmt)
+{
+    slider.setCentreValueFormatter (std::move (fmt));
+    repaint();
+}
+
+void WaveformKnob::setTextValues (const juce::StringArray& texts, const float* values, int numValues)
+{
+    textValues = texts;
+    numTextValues = juce::jmin (numValues, 8);
+    for (int i = 0; i < numTextValues; ++i)
+        textValuePositions[i] = values[i];
+    showTextValues = (numTextValues > 0);
+}
+
+void WaveformKnob::clearTextValues()
+{
+    textValues.clear();
+    numTextValues = 0;
+    showTextValues = false;
+    centerLabel.setVisible (false);
+}
+
+void WaveformKnob::setCenterText (const juce::String& text)
+{
+    centerText = text;
+    centerLabel.setText (text, juce::dontSendNotification);
+    centerLabel.setVisible (text.isNotEmpty());
+    slider.getProperties().set ("hideCenterValue", text.isNotEmpty());
+    repaint();
+}
+
+void WaveformKnob::clearCenterText()
+{
+    centerText = {};
+    centerLabel.setText ({}, juce::dontSendNotification);
+    centerLabel.setVisible (false);
+    slider.getProperties().set ("hideCenterValue", false);
+    repaint();
+}
+
+void WaveformKnob::updateCenterTextFromValue()
+{
+    if (showTextValues && numTextValues > 0)
+    {
+        const float val = (float) slider.getValue();
+        int closestIdx = 0;
+        float minDiff = std::abs (val - textValuePositions[0]);
+        for (int i = 1; i < numTextValues; ++i)
+        {
+            const float diff = std::abs (val - textValuePositions[i]);
+            if (diff < minDiff)
+            {
+                minDiff = diff;
+                closestIdx = i;
+            }
+        }
+        setCenterText (textValues[closestIdx]);
+    }
+}
+
+int WaveformKnob::getWaveformIndexFromValue (double value)
+{
+    const int numChoices = (int) Parameters::oscWaveformChoices.size();
+    int idx = juce::jlimit (0, numChoices - 1, (int) juce::roundToInt (value * numChoices));
+    return idx;
+}
+
+void WaveformKnob::paint (juce::Graphics&)
 {
     // WaveformKnob delegates rendering to the WaveformSlider
 }
@@ -71,9 +153,14 @@ void WaveformKnob::resized()
 
     slider.setBounds (knobX, knobY, knobSize, knobSize);
 
+    // Centre the text overlay over the knob body
+    const int centerH = juce::jmax (12, (int) (knobSize * 0.24f));
+    centerLabel.setBounds (knobX + 2, knobY + (knobSize - centerH) / 2, knobSize - 4, centerH);
+    centerLabel.setFont (juce::Font (juce::FontOptions (
+        juce::jlimit (9.0f, 16.0f, (float) knobSize * 0.18f), juce::Font::bold)));
+
     const int labelY = knobAreaH + gap;
     label.setBounds (0, labelY, totalW, labelH);
-
     label.setFont (GhostSignalLookAndFeel::getKnobLabelFont (knobSize));
 }
 
@@ -83,7 +170,6 @@ void WaveformKnob::resized()
 
 WaveformKnob::WaveformSlider::WaveformSlider()
 {
-    // Use default JUCE LookAndFeel rendering (we draw everything custom in paint)
     setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     setRotaryParameters (juce::MathConstants<float>::pi * 1.25f,
                          juce::MathConstants<float>::pi * 2.75f,
@@ -97,78 +183,47 @@ void WaveformKnob::WaveformSlider::paint (juce::Graphics& g)
     const auto bounds = getLocalBounds().toFloat();
     const float cx = bounds.getCentreX();
     const float cy = bounds.getCentreY();
-    const float r  = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
+    const float radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
 
-    // ── Knob body ──────────────────────────────────────────────────────────
-    const float bodyR = r * 0.88f;
-    {
-        g.setColour (GhostSignalLookAndFeel::knobBody);
-        g.fillEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+    // Draw the knob body
+    g.setColour (GhostSignalLookAndFeel::knobBody);
+    g.fillEllipse (cx - radius, cy - radius, radius * 2.0f, radius * 2.0f);
 
-        // Brushed metal texture
-        g.saveState();
-        g.reduceClipRegion (juce::Rectangle<float> (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f).toNearestInt());
-        g.setColour (juce::Colour (0x08FFFFFF));
-        for (float lineX = cx - bodyR; lineX < cx + bodyR; lineX += 2.0f)
-            g.drawVerticalLine ((int) lineX, cy - bodyR, cy + bodyR);
-        g.restoreState();
-    }
+    // Draw the rotary groove arc (value indicator)
+    const float rotaryStart = juce::MathConstants<float>::pi * 1.25f;
+    const float rotaryEnd   = juce::MathConstants<float>::pi * 2.75f;
+    const float sliderAngle = rotaryStart + (float) getValue() * (rotaryEnd - rotaryStart);
 
-    // Chrome rim
+    // Draw the filled arc
+    g.setColour (GhostSignalLookAndFeel::accent);
+    juce::Path arc;
+    arc.addCentredArc (cx, cy, radius, radius, 0.0f, rotaryStart, sliderAngle, true);
+    g.strokePath (arc, juce::PathStrokeType (3.0f));
+
+    // Draw the rim
     g.setColour (GhostSignalLookAndFeel::knobRim);
-    g.drawEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f, 1.5f);
+    juce::Path rim;
+    rim.addCentredArc (cx, cy, radius, radius, 0.0f, 0.0f, juce::MathConstants<float>::twoPi, true);
+    g.strokePath (rim, juce::PathStrokeType (2.0f));
 
-    // Inner shadow
+    // Draw the inner shadow for depth
+    g.setColour (GhostSignalLookAndFeel::panelShadow);
+    juce::Path innerShadow;
+    innerShadow.addCentredArc (cx, cy, radius * 0.92f, radius * 0.92f, 0.0f, 0.0f, juce::MathConstants<float>::twoPi, true);
+    g.strokePath (innerShadow, juce::PathStrokeType (2.0f));
+
+    // Draw the center cap
+    g.setColour (GhostSignalLookAndFeel::knobCenter);
+    g.fillEllipse (cx - radius * 0.22f, cy - radius * 0.22f, radius * 0.44f, radius * 0.44f);
+    g.setColour (GhostSignalLookAndFeel::accentDark);
+    g.drawEllipse (cx - radius * 0.22f, cy - radius * 0.22f, radius * 0.44f, radius * 0.44f, 1.0f);
+
+    // Draw waveform icon in the centre if enabled
+    if (showWaveformIcon)
     {
-        const float innerR = bodyR - 2.0f;
-        g.setColour (juce::Colour (0x18000000));
-        g.drawEllipse (cx - innerR, cy - innerR, innerR * 2.0f, innerR * 2.0f, 1.0f);
-    }
-
-    // ── Value arc ───────────────────────────────────────────────────────────
-    {
-        const float arcRadius    = r * 0.90f;
-        const float arcThickness = juce::jlimit (2.5f, 7.0f, r * 0.14f);
-        const float sliderPos    = (float) getValue();
-        const float startAngle   = juce::MathConstants<float>::pi * 1.25f;
-        const float endAngle     = juce::MathConstants<float>::pi * 2.75f;
-        const float toAngle      = startAngle + sliderPos * (endAngle - startAngle);
-
-        // Track arc
-        {
-            juce::Path track;
-            track.addCentredArc (cx, cy, arcRadius, arcRadius, 0.0f, startAngle, endAngle, true);
-            juce::PathStrokeType stroke (arcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
-            g.setColour (juce::Colour (0xFF3A3A4A));
-            g.strokePath (track, stroke);
-        }
-
-        // Value arc
-        if (sliderPos > 0.001f)
-        {
-            juce::Path valueArc;
-            valueArc.addCentredArc (cx, cy, arcRadius, arcRadius, 0.0f, startAngle, toAngle, true);
-            juce::PathStrokeType stroke (arcThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
-            g.setColour (GhostSignalLookAndFeel::accent);
-            g.strokePath (valueArc, stroke);
-        }
-    }
-
-    // ── Waveform icon in center ────────────────────────────────────────────
-    {
-        int waveIndex = 0;
-        const float v = (float) getValue();
-        const float range = (float) (getMaximum() - getMinimum());
-        if (range > 0.0f)
-        {
-            const int numWaves = 8;
-            const int idx = juce::jlimit (0, numWaves - 1,
-                                          (int) std::round ((v - (float) getMinimum()) / range * (numWaves - 1)));
-            waveIndex = idx;
-        }
-
-        const float iconR = r * 0.30f;
-        const juce::Rectangle<float> iconArea (cx - iconR, cy - iconR, iconR * 2.0f, iconR * 2.0f);
+        juce::Rectangle<float> iconArea (cx - radius * 0.35f, cy - radius * 0.35f,
+                                         radius * 0.70f, radius * 0.70f);
+        const int waveIndex = getWaveformIndexFromValue (getValue());
         drawWaveformIcon (g, iconArea, waveIndex);
     }
 }
@@ -294,3 +349,4 @@ void WaveformKnob::WaveformSlider::drawWaveformIcon (juce::Graphics& g,
 
     g.strokePath (p, juce::PathStrokeType (2.2f, juce::PathStrokeType::mitered, juce::PathStrokeType::square));
 }
+

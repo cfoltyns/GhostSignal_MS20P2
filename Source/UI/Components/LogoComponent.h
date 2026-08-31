@@ -22,8 +22,6 @@ public:
     const juce::String& getText() const { return displayName; }
 
     void setTextColour (juce::Colour c) { textColour = c; repaint(); }
-    void setPrimaryColour (juce::Colour c) { primaryColour = c; repaint(); }
-    void setAccentColour (juce::Colour c) { accentColour = c; repaint(); }
 
     void paint (juce::Graphics& g) override;
     void resized() override;
@@ -31,8 +29,6 @@ public:
 private:
     juce::String displayName { "GHOST SIGNAL  MS20P" };
     juce::Colour textColour { juce::Colour (0xFFE0E0E0) };
-    juce::Colour primaryColour { juce::Colour (0xFFDB4437) };
-    juce::Colour accentColour { juce::Colour (0xFFDB4437) };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LogoComponent)
 };
