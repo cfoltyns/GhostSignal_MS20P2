@@ -8,6 +8,8 @@
 
 void VoiceDSP::prepare (double sampleRate, int /*maxBlockSize*/)
 {
+    voiceSampleRate = sampleRate;
+
     osc1.prepare (sampleRate);
     osc2.prepare (sampleRate);
     sub.prepare (sampleRate);
@@ -65,10 +67,13 @@ void VoiceDSP::noteOn (int midiNoteNumber, float velocity)
     if (glideEnabled && glideTime > 0.0f && glideCurrentNote != (float) midiNoteNumber)
     {
         glideTargetNote = (float) midiNoteNumber;
-        glideActive = true;
-        // Constant rate mode: larger intervals take longer
-        const float interval = std::abs (glideTargetNote - glideCurrentNote);
-        glideRate = 1.0f / (glideTime * 1000.0f * (1.0f + interval * 0.1f));
+        glideStartNote  = glideCurrentNote;
+        glideActive     = true;
+        // Constant-time glide: the full interval always takes glideTime
+        // seconds regardless of interval size. Sample-count is stored as a
+        // double so large values never lose precision.
+        glideSamplesTotal = juce::jmax (1.0, (double) glideTime * voiceSampleRate);
+        glideSamplesDone  = 0.0;
     }
     else
     {
@@ -218,24 +223,33 @@ void VoiceDSP::process (juce::AudioBuffer<float>& buffer, int startSample, int n
             }
         }
         
-        // Apply glide/portamento slew limiting
+        // Apply glide/portamento — linear interpolation from the starting
+        // note to the target over exactly glideTime seconds. Bounded by
+        // construction (t is clamped to 0..1), so no instability or NaN is
+        // possible no matter where the Glide knob is set.
         if (glideActive)
         {
-            const float diff = glideTargetNote - glideCurrentNote;
-            if (std::abs (diff) < 0.01f)
+            glideSamplesDone += thisBlock;
+
+            if (glideSamplesDone >= glideSamplesTotal)
             {
                 glideCurrentNote = glideTargetNote;
                 glideActive = false;
             }
             else
             {
-                glideCurrentNote += diff * glideRate * thisBlock;
+                const float t = (float) (glideSamplesDone / glideSamplesTotal);
+                glideCurrentNote = glideStartNote
+                                 + (glideTargetNote - glideStartNote) * t;
             }
         }
 
-        // Pitch bend
+        // Pitch bend. The note is clamped to a wide-but-finite MIDI range so
+        // a runaway modulation value can never produce an inf/NaN frequency
+        // (which would silence the voice until it was reset).
         const float pbSemitones = currentPitchBend * 48.0f;
-        const float effectiveNote = (glideActive ? glideCurrentNote : currentNote) + pbSemitones;
+        const float effectiveNote = juce::jlimit (-128.0f, 256.0f,
+            (glideActive ? glideCurrentNote : currentNote) + pbSemitones);
         
         const float baseFreq = 440.0f * std::pow (2.0f, (effectiveNote - 69.0f) / 12.0f);
 

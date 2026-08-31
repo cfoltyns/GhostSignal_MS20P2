@@ -127,11 +127,18 @@ private:
     float driftSatOffset { 0.0f };
     float driftThermalPitch { 0.0f };
 
-    // Glide/portamento slew limiting
+    // Glide/portamento — linear, constant-time, sample-rate aware.
+    // glideCurrentNote interpolates from glideStartNote to glideTargetNote
+    // over glideSamplesTotal samples, so it can never diverge or produce
+    // NaN (the old exponential per-block update went unstable for small
+    // glide times and blasted NaN into the oscillator frequencies).
     float glideTargetNote { 69.0f };
     float glideCurrentNote { 69.0f };
+    float glideStartNote { 69.0f };
     float glideTime { 0.0f };
-    float glideRate { 0.0f };
+    double glideSamplesTotal { 0.0 };
+    double glideSamplesDone { 0.0 };
     bool glideActive { false };
     bool glideEnabled { false };
+    double voiceSampleRate { 44100.0 };
 };
