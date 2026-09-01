@@ -185,38 +185,33 @@ void WaveformKnob::WaveformSlider::paint (juce::Graphics& g)
     const float cy = bounds.getCentreY();
     const float radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
 
-    // Draw the knob body
-    g.setColour (GhostSignalLookAndFeel::knobBody);
-    g.fillEllipse (cx - radius, cy - radius, radius * 2.0f, radius * 2.0f);
+    const bool enabled  = isEnabled();
+    const bool hovered  = enabled && isMouseOver();
+    const bool dragging = enabled && isMouseButtonDown();
 
-    // Draw the rotary groove arc (value indicator)
+    // Shared premium knob body — identical layers to every other knob in the
+    // plugin (drop shadow, beveled rim, radial-gradient metal face, bevels).
+    GhostSignalLookAndFeel::drawPremiumKnobBody (g, { cx, cy }, radius, enabled, hovered, dragging);
+
+    // Rotary value arc just outside the body (matches the LookAndFeel geometry)
     const float rotaryStart = juce::MathConstants<float>::pi * 1.25f;
     const float rotaryEnd   = juce::MathConstants<float>::pi * 2.75f;
     const float sliderAngle = rotaryStart + (float) getValue() * (rotaryEnd - rotaryStart);
 
-    // Draw the filled arc
-    g.setColour (GhostSignalLookAndFeel::accent);
-    juce::Path arc;
-    arc.addCentredArc (cx, cy, radius, radius, 0.0f, rotaryStart, sliderAngle, true);
-    g.strokePath (arc, juce::PathStrokeType (3.0f));
+    if (enabled && (float) getValue() > 0.001f)
+    {
+        const float arcR = radius * 0.93f;
+        juce::Path arc;
+        arc.addCentredArc (cx, cy, arcR, arcR, 0.0f, rotaryStart, sliderAngle, true);
+        g.setColour (dragging ? GhostSignalLookAndFeel::accent.brighter (0.22f)
+                              : GhostSignalLookAndFeel::accent);
+        g.strokePath (arc, juce::PathStrokeType (juce::jlimit (2.0f, 4.0f, radius * 0.09f),
+                                                 juce::PathStrokeType::curved,
+                                                 juce::PathStrokeType::rounded));
+    }
 
-    // Draw the rim
-    g.setColour (GhostSignalLookAndFeel::knobRim);
-    juce::Path rim;
-    rim.addCentredArc (cx, cy, radius, radius, 0.0f, 0.0f, juce::MathConstants<float>::twoPi, true);
-    g.strokePath (rim, juce::PathStrokeType (2.0f));
-
-    // Draw the inner shadow for depth
-    g.setColour (GhostSignalLookAndFeel::panelShadow);
-    juce::Path innerShadow;
-    innerShadow.addCentredArc (cx, cy, radius * 0.92f, radius * 0.92f, 0.0f, 0.0f, juce::MathConstants<float>::twoPi, true);
-    g.strokePath (innerShadow, juce::PathStrokeType (2.0f));
-
-    // Draw the center cap
-    g.setColour (GhostSignalLookAndFeel::knobCenter);
-    g.fillEllipse (cx - radius * 0.22f, cy - radius * 0.22f, radius * 0.44f, radius * 0.44f);
-    g.setColour (GhostSignalLookAndFeel::accentDark);
-    g.drawEllipse (cx - radius * 0.22f, cy - radius * 0.22f, radius * 0.44f, radius * 0.44f, 1.0f);
+    // Shared machined centre cap (waveform icon drawn on top)
+    GhostSignalLookAndFeel::drawPremiumKnobCap (g, { cx, cy }, radius * 0.20f, enabled);
 
     // Draw waveform icon in the centre if enabled
     if (showWaveformIcon)

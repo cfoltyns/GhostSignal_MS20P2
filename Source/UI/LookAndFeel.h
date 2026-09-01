@@ -72,6 +72,24 @@ public:
     static const juce::Colour knobCenter;
     static const juce::Colour panelShadow;
 
+    // ─── Premium knob rendering (shared) ────────────────────────────────────────
+    // Physical knob body: soft drop shadow, beveled outer rim, radial-gradient
+    // metal face with a top-left sheen, plus optional hover/drag feedback.
+    // Shared by the rotary LookAndFeel and the custom WaveformSlider so every
+    // knob in the plugin has the same hardware appearance.
+    static void drawPremiumKnobBody (juce::Graphics& g,
+                                     juce::Point<float> centre,
+                                     float radius,
+                                     bool enabled,
+                                     bool hovered = false,
+                                     bool dragging = false);
+
+    // Machined centre cap; the value text or waveform icon is drawn on top.
+    static void drawPremiumKnobCap (juce::Graphics& g,
+                                    juce::Point<float> centre,
+                                    float capRadius,
+                                    bool enabled);
+
     // ─── Typography helpers ────────────────────────────────────────────────────
     static float getSectionTitleFontSize (int panelHeight);
     static float getParamLabelFontSize (int widgetHeight);

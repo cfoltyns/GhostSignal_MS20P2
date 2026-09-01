@@ -30,6 +30,170 @@ const Colour GhostSignalLookAndFeel::knobRim    { Colour (0xFF5A5A6A) };
 const Colour GhostSignalLookAndFeel::knobCenter { Colour (0xFF1A1A2A) };
 const Colour GhostSignalLookAndFeel::panelShadow { Colour (0x30000000) };
 
+// ─── Premium knob geometry (shared) ──────────────────────────────────────────
+// Proportions relative to the knob's outer radius. Shared by the LookAndFeel
+// rotary renderer and the WaveformSlider so every knob in the plugin has
+// identical physical proportions.
+namespace
+{
+    constexpr float knobBodyScale = 0.84f;   // metal face radius
+    constexpr float knobCapScale  = 0.20f;   // centre cap radius
+}
+
+// ─── Premium knob body (shared) ───────────────────────────────────────────────
+// Physical layers, outside-in: drop shadow → beveled rim → radial-gradient
+// metal face → brushed texture → edge bevels. `hovered`/`dragging` add a
+// gentle contrast lift (visual feedback only — no behaviour change).
+
+void GhostSignalLookAndFeel::drawPremiumKnobBody (Graphics& g,
+                                                  Point<float> centre,
+                                                  float radius,
+                                                  bool enabled,
+                                                  bool hovered,
+                                                  bool dragging)
+{
+    const float cx = centre.x;
+    const float cy = centre.y;
+    const float r  = radius;
+
+    // ── Drop shadow — soft stacked ellipses offset downward so the knob
+    //    appears to sit above the panel rather than being printed on it ──
+    const float  shadowScales[3]  = { 0.985f, 1.000f, 1.015f };
+    const uint32 shadowAlphas[3]  = { 0x42000000u, 0x2E000000u, 0x1A000000u };
+    for (int i = 0; i < 3; ++i)
+    {
+        const float sr = r * shadowScales[i];
+        const float dy = 1.0f + 1.25f * (float) i;
+        g.setColour (Colour (shadowAlphas[i]));
+        g.fillEllipse (cx - sr, cy - sr + dy, sr * 2.0f, sr * 2.0f);
+    }
+
+    // ── Beveled outer rim — dark machined ring around the metal face ──
+    const float rimR = r * 0.96f;
+    g.setColour (Colour (0xFF26262F));
+    g.fillEllipse (cx - rimR, cy - rimR, rimR * 2.0f, rimR * 2.0f);
+
+    // Rim shading: light source top-left, shadow bottom-right
+    {
+        Path rimDark;
+        rimDark.addCentredArc (cx, cy, rimR - 0.75f, rimR - 0.75f, 0.0f,
+                               -0.15f * MathConstants<float>::pi,
+                                0.55f * MathConstants<float>::pi, true);
+        g.setColour (Colour (0x7A000000));
+        g.strokePath (rimDark, PathStrokeType (1.4f, PathStrokeType::curved, PathStrokeType::rounded));
+
+        Path rimLight;
+        rimLight.addCentredArc (cx, cy, rimR - 0.75f, rimR - 0.75f, 0.0f,
+                                 0.85f * MathConstants<float>::pi,
+                                 1.65f * MathConstants<float>::pi, true);
+        g.setColour (Colour (hovered ? 0x66FFFFFF : 0x45FFFFFF));
+        g.strokePath (rimLight, PathStrokeType (1.2f, PathStrokeType::curved, PathStrokeType::rounded));
+    }
+
+    // ── Knob body — radial-gradient dark metal face ────────────────────────────
+    const float bodyR = r * knobBodyScale;
+    {
+        auto bodyLight = Colour (0xFF40404F);
+        auto bodyMid   = Colour (0xFF2B2B39);
+        auto bodyDark  = Colour (0xFF191922);
+
+        // Gentle contrast lift on hover / drag (visual feedback only)
+        if (hovered)  { bodyLight = bodyLight.brighter (0.06f); bodyMid = bodyMid.brighter (0.06f); }
+        if (dragging) { bodyLight = bodyLight.brighter (0.12f); bodyMid = bodyMid.brighter (0.10f); }
+
+        ColourGradient faceGrad (bodyLight,
+                                 cx - bodyR * 0.45f, cy - bodyR * 0.55f,
+                                 bodyDark,
+                                 cx + bodyR * 0.30f, cy + bodyR * 0.55f,
+                                 true);
+        faceGrad.addColour (0.55f, bodyMid);
+        g.setGradientFill (faceGrad);
+        g.fillEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+
+        // Brushed-metal texture — hairline vertical strokes over the face
+        g.saveState();
+        g.reduceClipRegion (Rectangle<float> (cx - bodyR, cy - bodyR,
+                                              bodyR * 2.0f, bodyR * 2.0f).toNearestInt());
+        g.setColour (Colour (0x06FFFFFF));
+        for (float lineX = cx - bodyR; lineX < cx + bodyR; lineX += 2.0f)
+            g.drawVerticalLine (static_cast<int> (lineX), cy - bodyR, cy + bodyR);
+        g.restoreState();
+
+        // Body edge bevel — dark outline plus a top-left glint and a
+        // bottom-right shade, giving the face its physical thickness.
+        g.setColour (Colour (0x8C000000));
+        g.drawEllipse (cx - bodyR + 0.5f, cy - bodyR + 0.5f,
+                       bodyR * 2.0f - 1.0f, bodyR * 2.0f - 1.0f, 1.1f);
+
+        const float bevelW = jlimit (1.0f, 1.8f, bodyR * 0.05f);
+
+        Path bevelLight;
+        bevelLight.addCentredArc (cx, cy, bodyR - 1.0f, bodyR - 1.0f, 0.0f,
+                                   0.95f * MathConstants<float>::pi,
+                                   1.60f * MathConstants<float>::pi, true);
+        g.setColour (Colour (hovered ? 0x59FFFFFF : 0x3DFFFFFF));
+        g.strokePath (bevelLight, PathStrokeType (bevelW, PathStrokeType::curved, PathStrokeType::rounded));
+
+        Path bevelDark;
+        bevelDark.addCentredArc (cx, cy, bodyR - 1.0f, bodyR - 1.0f, 0.0f,
+                                 -0.10f * MathConstants<float>::pi,
+                                  0.60f * MathConstants<float>::pi, true);
+        g.setColour (Colour (0x5A000000));
+        g.strokePath (bevelDark, PathStrokeType (bevelW, PathStrokeType::curved, PathStrokeType::rounded));
+    }
+
+    // Disabled knobs get a uniform dimming wash so they read as inactive
+    // (same overall impression as the previous flat disabled fill).
+    if (! enabled)
+    {
+        g.setColour (disabled.withAlpha (0.40f));
+        g.fillEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+    }
+}
+
+// ─── Premium knob centre cap (shared) ─────────────────────────────────────────
+// Machined aluminium cap; the value text / waveform icon is drawn on top.
+
+void GhostSignalLookAndFeel::drawPremiumKnobCap (Graphics& g,
+                                                 Point<float> centre,
+                                                 float capRadius,
+                                                 bool enabled)
+{
+    const float cx   = centre.x;
+    const float cy   = centre.y;
+    const float capR = capRadius;
+
+    // Machined face — radial gradient with the sheen towards the top-left
+    ColourGradient capGrad (Colour (0xFF3E3E50),
+                            cx - capR * 0.40f, cy - capR * 0.55f,
+                            Colour (0xFF0F0F16),
+                            cx + capR * 0.30f, cy + capR * 0.60f,
+                            true);
+    capGrad.addColour (0.55f, Colour (0xFF23232E));
+    g.setGradientFill (capGrad);
+    g.fillEllipse (cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
+
+    // Recessed ring where the cap meets the knob body
+    g.setColour (Colour (0xA6000000));
+    g.drawEllipse (cx - capR + 0.5f, cy - capR + 0.5f,
+                   capR * 2.0f - 1.0f, capR * 2.0f - 1.0f, 1.0f);
+
+    // Tiny top-left glint on the cap edge
+    Path capGlint;
+    capGlint.addCentredArc (cx, cy, capR - 1.0f, capR - 1.0f, 0.0f,
+                            1.05f * MathConstants<float>::pi,
+                            1.50f * MathConstants<float>::pi, true);
+    g.setColour (Colour (0x38FFFFFF));
+    g.strokePath (capGlint, PathStrokeType (1.0f, PathStrokeType::curved, PathStrokeType::rounded));
+
+    // Dim the cap for disabled knobs (value text is skipped separately)
+    if (! enabled)
+    {
+        g.setColour (Colour (0x3A000000));
+        g.fillEllipse (cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
+    }
+}
+
 // ─── Constructor ──────────────────────────────────────────────────────────────
 
 GhostSignalLookAndFeel::GhostSignalLookAndFeel()
@@ -111,6 +275,13 @@ juce::Font GhostSignalLookAndFeel::getKnobLabelFont (int knobDiameter)
 }
 
 // ─── Rotary slider rendering ──────────────────────────────────────────────────
+//
+// Premium hardware-style knob assembled from shared layers (see
+// drawPremiumKnobBody / drawPremiumKnobCap):
+//   drop shadow → beveled rim → metal body → position indicator →
+//   accent value ring → machined centre cap with readout.
+// Hover adds a gentle sheen; dragging brightens the accent ring and pointer.
+// Purely cosmetic — no interaction or parameter behaviour is changed.
 
 void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
                                                int x, int y, int width, int height,
@@ -125,49 +296,18 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
     const float cy = y + height * 0.5f;
     const float r  = diameter * 0.5f;
 
-    const bool enabled = slider.isEnabled();
+    const bool enabled  = slider.isEnabled();
+    const bool hovered  = enabled && slider.isMouseOver();
+    const bool dragging = enabled && slider.isMouseButtonDown();
 
-    // ── Outer shadow (subtle drop shadow for depth) ────────────────────────────
-    {
-        const float shadowR = r * 0.96f;
-        g.setColour (panelShadow);
-        g.fillEllipse (cx - shadowR, cy - shadowR + 1.0f, shadowR * 2.0f, shadowR * 2.0f);
-    }
+    const float toAngle = rotaryStartAngle
+                        + jlimit (0.0f, 1.0f, sliderPos) * (rotaryEndAngle - rotaryStartAngle);
 
-    // ── Knob body — brushed metal texture ──────────────────────────────────────
-    const float bodyR = r * 0.88f;
-    {
-        // Base body colour
-        g.setColour (enabled ? knobBody : disabled);
-        g.fillEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+    // ── Value / track arc — floats just outside the knob body ──────────────────
+    const float arcRadius    = r * 0.93f;
+    const float arcThickness = jlimit (2.0f, 5.0f, r * 0.10f);
 
-        // Brushed metal texture — subtle vertical lines
-        g.saveState();
-        g.reduceClipRegion (Rectangle<float> (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f).toNearestInt());
-        g.setColour (Colour (0x08FFFFFF));
-        for (float lineX = cx - bodyR; lineX < cx + bodyR; lineX += 2.0f)
-            g.drawVerticalLine (static_cast<int> (lineX), cy - bodyR, cy + bodyR);
-        g.restoreState();
-    }
-
-    // ── Chrome rim ─────────────────────────────────────────────────────────────
-    g.setColour (enabled ? knobRim : disabled.darker (0.3f));
-    g.drawEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f, 1.5f);
-
-    // ── Inner shadow for bevel effect ───────────────────────────────────────────
-    {
-        const float innerR = bodyR - 2.0f;
-        g.setColour (Colour (0x18000000));
-        g.drawEllipse (cx - innerR, cy - innerR, innerR * 2.0f, innerR * 2.0f, 1.0f);
-    }
-
-    // ── Arc ring geometry ───────────────────────────────────────────────────────
-    const float arcRadius    = r * 0.90f;
-    const float arcThickness = jlimit (2.5f, 7.0f, r * 0.14f);
-
-    const float toAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
-
-    // Track arc — full travel range in dark grey
+    // Track arc — full travel range, recessed dark groove
     {
         Path track;
         track.addCentredArc (cx, cy, arcRadius, arcRadius,
@@ -176,22 +316,22 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
                              true);
 
         PathStrokeType stroke (arcThickness, PathStrokeType::curved, PathStrokeType::rounded);
-        g.setColour (Colour (0xFF3A3A4A));
+        g.setColour (Colour (0xFF2E2E3A));
         g.strokePath (track, stroke);
     }
 
-    // Value arc — accent colour, from start to current position
-    if (sliderPos > 0.001f)
+    // Value arc — muted accent, from the start angle to the current position
+    if (enabled && sliderPos > 0.001f)
     {
-        // Subtle glow behind the value arc
+        // Soft glow behind the value arc (slightly stronger while dragging)
         {
             Path glow;
             glow.addCentredArc (cx, cy, arcRadius, arcRadius,
                                 0.0f,
                                 rotaryStartAngle, toAngle,
                                 true);
-            PathStrokeType glowStroke (arcThickness * 2.2f, PathStrokeType::curved, PathStrokeType::rounded);
-            g.setColour (accent.withAlpha (0.12f));
+            PathStrokeType glowStroke (arcThickness * 2.1f, PathStrokeType::curved, PathStrokeType::rounded);
+            g.setColour (accent.withAlpha (dragging ? 0.18f : 0.11f));
             g.strokePath (glow, glowStroke);
         }
 
@@ -203,28 +343,59 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
                                     rotaryStartAngle, toAngle,
                                     true);
             PathStrokeType stroke (arcThickness, PathStrokeType::curved, PathStrokeType::rounded);
-            g.setColour (enabled ? accent : disabled);
+            g.setColour (dragging ? accent.brighter (0.22f) : accent);
             g.strokePath (valueArc, stroke);
+        }
+
+        // Bright dot at the tip of the arc — the exact value is readable at
+        // a glance from across the whole synth.
+        {
+            const float dotR = arcThickness * 0.72f;
+            g.setColour (dragging ? Colour (0xFFE0E0E8) : accent.brighter (0.35f));
+            g.fillEllipse (cx + std::cos (toAngle) * arcRadius - dotR,
+                           cy + std::sin (toAngle) * arcRadius - dotR,
+                           dotR * 2.0f, dotR * 2.0f);
         }
     }
 
-    // ── Machined aluminum center cap ────────────────────────────────────────────
-    const float centerR = r * 0.14f;
-    {
-        // Center cap gradient
-        ColourGradient capGrad (Colour (0xFF2A2A3A), cx - centerR * 0.5f, cy - centerR * 0.6f,
-                                Colour (0xFF12121A), cx + centerR * 0.4f, cy + centerR * 0.6f,
-                                false);
-        capGrad.addColour (0.5f, knobCenter);
-        g.setGradientFill (capGrad);
-        g.fillEllipse (cx - centerR, cy - centerR, centerR * 2.0f, centerR * 2.0f);
+    // ── Physical knob body (shadow, rim, face, bevels) ─────────────────────────
+    drawPremiumKnobBody (g, { cx, cy }, r, enabled, hovered, dragging);
 
-        // Center cap rim
-        g.setColour (knobRim.withAlpha (0.6f));
-        g.drawEllipse (cx - centerR, cy - centerR, centerR * 2.0f, centerR * 2.0f, 0.8f);
+    const float bodyR = r * knobBodyScale;
+    const float capR  = r * knobCapScale;
+
+    // ── Position indicator — physical pointer from the cap toward the rim ──────
+    // Rotates with the value so every knob's position is readable without
+    // reading the numeric centre display.
+    if (enabled)
+    {
+        const float indStart = capR + r * 0.09f;
+        const float indEnd   = bodyR * 0.86f;
+        const float indW     = jlimit (2.0f, 3.5f, r * 0.085f);
+
+        const float sinA = std::sin (toAngle);
+        const float cosA = std::cos (toAngle);
+        const Line<float> pointer (cx + cosA * indStart, cy + sinA * indStart,
+                                   cx + cosA * indEnd,   cy + sinA * indEnd);
+
+        // Restrained accent halo under the pointer
+        g.setColour (accent.withAlpha (0.30f));
+        g.drawLine (pointer, indW + jlimit (1.5f, 2.5f, r * 0.06f));
+
+        // Crisp machined pointer with a rounded tip
+        g.setColour (dragging ? Colour (0xFFFFFFFF)
+                              : textPrimary.withAlpha (hovered ? 0.98f : 0.88f));
+        g.drawLine (pointer, indW);
+
+        const float tipR = indW * 0.65f;
+        g.fillEllipse (cx + cosA * indEnd - tipR, cy + sinA * indEnd - tipR,
+                       tipR * 2.0f, tipR * 2.0f);
     }
 
-    // ── Value text in center ────────────────────────────────────────────────────
+    // ── Machined centre cap ────────────────────────────────────────────────────
+    drawPremiumKnobCap (g, { cx, cy }, capR, enabled);
+
+    // ── Value text in centre ───────────────────────────────────────────────────
     // Skipped when the knob displays its own centre text (e.g. LFO rate knob
     // showing a tempo division or ms period), signalled via a slider property.
     if (enabled && ! (bool) slider.getProperties().getWithDefault ("hideCenterValue", false))
@@ -233,13 +404,13 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
 
         if (centreText.isNotEmpty())
         {
-            float fontSize = jlimit (7.0f, 11.0f, centerR * 1.4f);
+            float fontSize = jlimit (7.0f, 11.0f, capR * 1.4f);
             g.setColour (textPrimary);
             g.setFont (Font (FontOptions (fontSize, Font::bold)));
 
             // Shrink the font so multi-digit values (e.g. "100") still fit
             // inside the centre cap instead of being clipped.
-            const float maxTextW = centerR * 3.0f;
+            const float maxTextW = capR * 3.0f;
             while (fontSize > 6.0f
                    && GlyphArrangement::getStringWidth (g.getCurrentFont(), centreText) > maxTextW)
             {
@@ -251,9 +422,9 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
             // aren't clipped; the text may overhang slightly onto the knob body.
             g.drawFittedText (centreText,
                               Rectangle<int> (roundToInt (cx - maxTextW * 0.5f),
-                                              roundToInt (cy - centerR),
+                                              roundToInt (cy - capR),
                                               roundToInt (maxTextW),
-                                              roundToInt (centerR * 2.0f)),
+                                              roundToInt (capR * 2.0f)),
                               Justification::centred, 1, 0.7f);
         }
     }
