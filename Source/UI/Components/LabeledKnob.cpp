@@ -15,6 +15,11 @@
 LabeledKnob::LabeledKnob (const juce::String& labelText)
 {
     slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+    // Full 270° rotary travel (far bottom-left to far bottom-right) for every
+    // knob, independent of the per-knob setup done in PluginEditor.
+    slider.setRotaryParameters (juce::MathConstants<float>::pi * 1.25f,
+                                juce::MathConstants<float>::pi * 2.75f,
+                                true);
     slider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     addAndMakeVisible (slider);
 
@@ -244,7 +249,7 @@ void LabeledKnob::resized()
     const int centerH = juce::jmax (12, (int) (knobSize * 0.24f));
     centerLabel.setBounds (knobX + 2, knobY + (knobSize - centerH) / 2, knobSize - 4, centerH);
     centerLabel.setFont (juce::Font (juce::FontOptions (
-        juce::jlimit (9.0f, 14.0f, (float) knobSize * 0.18f), juce::Font::bold)));
+        juce::jlimit (8.0f, 12.0f, (float) knobSize * 0.15f), juce::Font::bold)));
 
     const int labelY = knobAreaH + gap;
     label.setBounds (0, labelY, totalW, labelH);
