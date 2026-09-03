@@ -155,13 +155,14 @@ void GhostSignalLookAndFeel::drawPremiumKnobBody (Graphics& g,
 
         // ── Inner shadow — recessed depth around the cap for 3D effect ──
         {
-            const float shadowR = capR + (bodyR - capR) * 0.35f;
+            const float capRadius = r * knobCapScale;
+            const float shadowR = capRadius + (bodyR - capRadius) * 0.35f;
             Path innerShadow;
             innerShadow.addCentredArc (cx, cy, shadowR, shadowR, 0.0f,
                                        -0.20f * MathConstants<float>::pi,
                                         0.60f * MathConstants<float>::pi, true);
             g.setColour (Colour (0x45000000));
-            g.strokePath (innerShadow, PathStrokeType ((bodyR - capR) * 0.45f,
+            g.strokePath (innerShadow, PathStrokeType ((bodyR - capRadius) * 0.45f,
                                                       PathStrokeType::curved, PathStrokeType::rounded));
         }
     }
