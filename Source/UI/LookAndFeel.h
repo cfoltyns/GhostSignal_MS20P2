@@ -3,9 +3,9 @@
  *
  * (c) 2026 Ghost Signal
  *
- * Description: Premium industrial LookAndFeel — brushed-metal knobs with
- *              chrome rims, recessed panels with inner shadows, and a
- *              restrained dark color palette with a single warm accent.
+ * Description: Industrial LookAndFeel — black molded plastic potentiometer
+ *              knobs with wide mounting flanges, cylindrical side walls,
+ *              grip grooves, and dark-on-dark 3D shading.
  *
  * Design system:
  *   Background:  #0A0A0C  (deep charcoal)
@@ -16,9 +16,6 @@
  *   Accent:       #5C6B5E (muted sage green)
  *   Accent dark:  #47524A
  *   Disabled:     #4A4A5A
- *   Knob body:    #2A2A3A (brushed metal)
- *   Knob rim:     #5A5A6A (chrome)
- *   Knob center:  #1A1A2A (machined aluminum)
  */
 
 #pragma once
@@ -68,27 +65,26 @@ public:
     static const juce::Colour accentDark;
     static const juce::Colour disabled;
     static const juce::Colour knobBody;
-    static const juce::Colour knobRim;
-    static const juce::Colour knobCenter;
     static const juce::Colour panelShadow;
 
-    // ─── Premium knob rendering (shared) ────────────────────────────────────────
-    // Physical knob body: soft drop shadow, beveled outer rim, radial-gradient
-    // metal face with a top-left sheen, plus optional hover/drag feedback.
+    // ─── Industrial molded knob rendering (shared) ─────────────────────────────
+    // Physical knob body: drop shadow → mounting flange → cylindrical side wall →
+    // grip grooves → top surface → bevels. Optional hover/drag feedback.
     // Shared by the rotary LookAndFeel and the custom WaveformSlider so every
     // knob in the plugin has the same hardware appearance.
-    static void drawPremiumKnobBody (juce::Graphics& g,
-                                     juce::Point<float> centre,
-                                     float radius,
-                                     bool enabled,
-                                     bool hovered = false,
-                                     bool dragging = false);
+    static void drawIndustrialKnobBody (juce::Graphics& g,
+                                        juce::Point<float> centre,
+                                        float radius,
+                                        bool enabled,
+                                        bool hovered = false,
+                                        bool dragging = false);
 
-    // Machined centre cap; the value text or waveform icon is drawn on top.
-    static void drawPremiumKnobCap (juce::Graphics& g,
-                                    juce::Point<float> centre,
-                                    float capRadius,
-                                    bool enabled);
+    // Small center detail for the industrial knob; the value text or waveform
+    // icon is drawn on top.
+    static void drawIndustrialKnobCap (juce::Graphics& g,
+                                       juce::Point<float> centre,
+                                       float capRadius,
+                                       bool enabled);
 
     // ─── Typography helpers ────────────────────────────────────────────────────
     static float getSectionTitleFontSize (int panelHeight);

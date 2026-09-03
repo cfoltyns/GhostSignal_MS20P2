@@ -189,9 +189,9 @@ void WaveformKnob::WaveformSlider::paint (juce::Graphics& g)
     const bool hovered  = enabled && isMouseOver();
     const bool dragging = enabled && isMouseButtonDown();
 
-    // Shared premium knob body — identical layers to every other knob in the
-    // plugin (drop shadow, beveled rim, radial-gradient metal face, bevels).
-    GhostSignalLookAndFeel::drawPremiumKnobBody (g, { cx, cy }, radius, enabled, hovered, dragging);
+    // Shared industrial knob body — identical layers to every other knob in the
+    // plugin (drop shadow, flange, cylindrical side wall, grip grooves, top).
+    GhostSignalLookAndFeel::drawIndustrialKnobBody (g, { cx, cy }, radius, enabled, hovered, dragging);
 
     // Rotary value arc just outside the body (matches the LookAndFeel geometry)
     const float rotaryStart = juce::MathConstants<float>::pi * 0.75f;
@@ -210,8 +210,8 @@ void WaveformKnob::WaveformSlider::paint (juce::Graphics& g)
                                                  juce::PathStrokeType::rounded));
     }
 
-    // Shared machined centre cap (waveform icon drawn on top)
-    GhostSignalLookAndFeel::drawPremiumKnobCap (g, { cx, cy }, radius * 0.20f, enabled);
+    // Shared industrial centre cap (waveform icon drawn on top)
+    GhostSignalLookAndFeel::drawIndustrialKnobCap (g, { cx, cy }, radius * 0.20f, enabled);
 
     // Draw waveform icon in the centre if enabled
     if (showWaveformIcon)
