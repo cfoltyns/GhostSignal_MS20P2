@@ -56,16 +56,28 @@ void GhostSignalLookAndFeel::drawPremiumKnobBody (Graphics& g,
     const float cy = centre.y;
     const float r  = radius;
 
-    // ── Drop shadow — soft stacked ellipses offset downward so the knob
-    //    appears to sit above the panel rather than being printed on it ──
-    const float  shadowScales[3]  = { 0.985f, 1.000f, 1.015f };
-    const uint32 shadowAlphas[3]  = { 0x42000000u, 0x2E000000u, 0x1A000000u };
-    for (int i = 0; i < 3; ++i)
+    // ── Drop shadow — multi-layer soft shadow offset downward for 3D depth ──
+    //    Three layers create a realistic falloff: a tight dark core, a mid
+    //    shadow, and a soft ambient occlusion bleed into the panel.
+    const float  shadowScales[4]  = { 0.96f, 0.985f, 1.005f, 1.03f };
+    const uint32 shadowAlphas[4]  = { 0x55000000u, 0x38000000u, 0x22000000u, 0x12000000u };
+    const float  shadowOffsets[4] = { 0.5f, 1.5f, 3.0f, 5.0f };
+    for (int i = 0; i < 4; ++i)
     {
         const float sr = r * shadowScales[i];
-        const float dy = 1.0f + 1.25f * (float) i;
+        const float dy = shadowOffsets[i];
         g.setColour (Colour (shadowAlphas[i]));
         g.fillEllipse (cx - sr, cy - sr + dy, sr * 2.0f, sr * 2.0f);
+    }
+
+    // ── Outer glow/highlight — subtle top-left light reflection for 3D pop ──
+    {
+        Path glow;
+        glow.addCentredArc (cx, cy, r * 1.02f, r * 1.02f, 0.0f,
+                           0.70f * MathConstants<float>::pi,
+                           1.70f * MathConstants<float>::pi, true);
+        g.setColour (Colour (0x20FFFFFF));
+        g.strokePath (glow, PathStrokeType (3.0f, PathStrokeType::curved, PathStrokeType::rounded));
     }
 
     // ── Beveled outer rim — dark machined ring around the metal face ──
@@ -140,6 +152,18 @@ void GhostSignalLookAndFeel::drawPremiumKnobBody (Graphics& g,
                                   0.60f * MathConstants<float>::pi, true);
         g.setColour (Colour (0x5A000000));
         g.strokePath (bevelDark, PathStrokeType (bevelW, PathStrokeType::curved, PathStrokeType::rounded));
+
+        // ── Inner shadow — recessed depth around the cap for 3D effect ──
+        {
+            const float shadowR = capR + (bodyR - capR) * 0.35f;
+            Path innerShadow;
+            innerShadow.addCentredArc (cx, cy, shadowR, shadowR, 0.0f,
+                                       -0.20f * MathConstants<float>::pi,
+                                        0.60f * MathConstants<float>::pi, true);
+            g.setColour (Colour (0x45000000));
+            g.strokePath (innerShadow, PathStrokeType ((bodyR - capR) * 0.45f,
+                                                      PathStrokeType::curved, PathStrokeType::rounded));
+        }
     }
 
     // Disabled knobs get a uniform dimming wash so they read as inactive
@@ -303,21 +327,48 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
     const float toAngle = rotaryStartAngle
                         + jlimit (0.0f, 1.0f, sliderPos) * (rotaryEndAngle - rotaryStartAngle);
 
-    // ── Value / track arc — floats just outside the knob body ──────────────────
-    const float arcRadius    = r * 0.93f;
-    const float arcThickness = jlimit (2.0f, 5.0f, r * 0.10f);
+    // ── Value / track arc — aligned with tick marks inside the knob ──────────
+    //    Tick marks span from 0.32*diameter to 0.48*diameter (0.64r to 0.96r).
+    //    The track arc is centered on the tick midpoint (0.80r) with thickness
+    //    spanning the full tick range so the outer ring visually correlates.
+    const float arcRadius    = r * 0.80f;
+    const float arcThickness = jlimit (3.0f, 8.0f, r * 0.32f);
 
-    // Track arc — full travel range, recessed dark groove
+    // Track arc — full travel range, recessed dark groove aligned with ticks
     {
+        // Dark shadow underneath for depth
+        {
+            Path trackShadow;
+            trackShadow.addCentredArc (cx, cy, arcRadius, arcRadius,
+                                      0.0f,
+                                      rotaryStartAngle, rotaryEndAngle,
+                                      true);
+            PathStrokeType shadowStroke (arcThickness + 2.0f, PathStrokeType::curved, PathStrokeType::rounded);
+            g.setColour (Colour (0x40000000));
+            g.strokePath (trackShadow, shadowStroke);
+        }
+
+        // Main track groove
         Path track;
         track.addCentredArc (cx, cy, arcRadius, arcRadius,
                              0.0f,
                              rotaryStartAngle, rotaryEndAngle,
                              true);
-
         PathStrokeType stroke (arcThickness, PathStrokeType::curved, PathStrokeType::rounded);
         g.setColour (Colour (0xFF2E2E3A));
         g.strokePath (track, stroke);
+
+        // Highlight on top edge for 3D groove effect
+        {
+            Path trackHighlight;
+            trackHighlight.addCentredArc (cx, cy, arcRadius, arcRadius,
+                                         0.0f,
+                                         rotaryStartAngle, rotaryEndAngle,
+                                         true);
+            PathStrokeType highlightStroke (arcThickness * 0.3f, PathStrokeType::curved, PathStrokeType::rounded);
+            g.setColour (Colour (0x25FFFFFF));
+            g.strokePath (trackHighlight, highlightStroke);
+        }
     }
 
     // Value arc — muted accent, from the start angle to the current position
@@ -350,7 +401,13 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
         // Bright dot at the tip of the arc — the exact value is readable at
         // a glance from across the whole synth.
         {
-            const float dotR = arcThickness * 0.72f;
+            const float dotR = arcThickness * 0.65f;
+            // Outer glow
+            g.setColour (accent.withAlpha (0.30f));
+            g.fillEllipse (cx + std::cos (toAngle) * arcRadius - dotR * 1.5f,
+                           cy + std::sin (toAngle) * arcRadius - dotR * 1.5f,
+                           dotR * 3.0f, dotR * 3.0f);
+            // Main dot
             g.setColour (dragging ? Colour (0xFFE0E0E8) : accent.brighter (0.35f));
             g.fillEllipse (cx + std::cos (toAngle) * arcRadius - dotR,
                            cy + std::sin (toAngle) * arcRadius - dotR,
