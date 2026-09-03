@@ -171,8 +171,8 @@ void WaveformKnob::resized()
 WaveformKnob::WaveformSlider::WaveformSlider()
 {
     setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-    setRotaryParameters (juce::MathConstants<float>::pi * 1.25f,
-                         juce::MathConstants<float>::pi * 2.75f,
+    setRotaryParameters (juce::MathConstants<float>::pi * 0.75f,
+                         juce::MathConstants<float>::pi * 2.25f,
                          true);
     setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     setMouseDragSensitivity (80);
@@ -194,8 +194,8 @@ void WaveformKnob::WaveformSlider::paint (juce::Graphics& g)
     GhostSignalLookAndFeel::drawPremiumKnobBody (g, { cx, cy }, radius, enabled, hovered, dragging);
 
     // Rotary value arc just outside the body (matches the LookAndFeel geometry)
-    const float rotaryStart = juce::MathConstants<float>::pi * 1.25f;
-    const float rotaryEnd   = juce::MathConstants<float>::pi * 2.75f;
+    const float rotaryStart = juce::MathConstants<float>::pi * 0.75f;
+    const float rotaryEnd   = juce::MathConstants<float>::pi * 2.25f;
     const float sliderAngle = rotaryStart + (float) getValue() * (rotaryEnd - rotaryStart);
 
     if (enabled && (float) getValue() > 0.001f)

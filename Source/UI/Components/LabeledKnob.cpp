@@ -17,8 +17,8 @@ LabeledKnob::LabeledKnob (const juce::String& labelText)
     slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     // Full 270° rotary travel (far bottom-left to far bottom-right) for every
     // knob, independent of the per-knob setup done in PluginEditor.
-    slider.setRotaryParameters (juce::MathConstants<float>::pi * 1.25f,
-                                juce::MathConstants<float>::pi * 2.75f,
+    slider.setRotaryParameters (juce::MathConstants<float>::pi * 0.75f,
+                                juce::MathConstants<float>::pi * 2.25f,
                                 true);
     slider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     addAndMakeVisible (slider);
@@ -138,9 +138,9 @@ void LabeledKnob::paint (juce::Graphics& g)
         const float minV = (float) slider.getMinimum();
         const float maxV = (float) slider.getMaximum();
 
-        // Match the rotary arc used in PluginEditor: 1.25 pi to 2.75 pi (270 deg sweep)
-        const float rotaryStart = juce::MathConstants<float>::pi * 1.25f;
-        const float rotaryEnd   = juce::MathConstants<float>::pi * 2.75f;
+        // Match the rotary arc used in PluginEditor: 0.75 pi to 2.25 pi (270 deg sweep)
+        const float rotaryStart = juce::MathConstants<float>::pi * 0.75f;
+        const float rotaryEnd   = juce::MathConstants<float>::pi * 2.25f;
 
         // Size the labels from the available arc spacing so that many divisions
         // around a small knob (e.g. LFO tempo divisions) stay tiny and readable.
@@ -213,8 +213,8 @@ void LabeledKnob::paint (juce::Graphics& g)
         const float cy = (float) sliderBounds.getCentreY();
         const float radius = (float) sliderBounds.getWidth() * 0.43f;
 
-        const float rotaryStart = juce::MathConstants<float>::pi * 1.25f;
-        const float rotaryEnd   = juce::MathConstants<float>::pi * 2.75f;
+        const float rotaryStart = juce::MathConstants<float>::pi * 0.75f;
+        const float rotaryEnd   = juce::MathConstants<float>::pi * 2.25f;
         const float angle = rotaryStart + juce::jlimit (0.0f, 1.0f, modulationValue)
                               * (rotaryEnd - rotaryStart);
 
