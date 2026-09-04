@@ -66,6 +66,7 @@ public:
 
     // Get voice state for processing
     Voice* getVoice (int index) { return voices[index].get(); }
+    const Voice* getVoice (int index) const { return voices[index].get(); }
     int getNumActiveVoices() const { return activeVoiceCount; }
 
     // Get maximum number of voice slots

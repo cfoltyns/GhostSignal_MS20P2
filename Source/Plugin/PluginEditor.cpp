@@ -1764,10 +1764,10 @@ void PluginEditor::timerCallback()
     const int d4 = apvts.getRawParameterValue (Parameters::paramLFO4Dest) ? (int) apvts.getRawParameterValue (Parameters::paramLFO4Dest)->load() : 0;
 
     // Actual LFO output values from DSP (normalized -1..1), thread-safe
-    const float lfoOut1 = audioEngine->getLfoOutput (0);
-    const float lfoOut2 = audioEngine->getLfoOutput (1);
-    const float lfoOut3 = audioEngine->getLfoOutput (2);
-    const float lfoOut4 = audioEngine->getLfoOutput (3);
+    const float lfoOut1 = audioProcessor.getEngine().getLfoOutput (0);
+    const float lfoOut2 = audioProcessor.getEngine().getLfoOutput (1);
+    const float lfoOut3 = audioProcessor.getEngine().getLfoOutput (2);
+    const float lfoOut4 = audioProcessor.getEngine().getLfoOutput (3);
 
     const float dep1 = apvts.getRawParameterValue (Parameters::paramLFO1Depth) ? apvts.getRawParameterValue (Parameters::paramLFO1Depth)->load() : 0.0f;
     const float dep2 = apvts.getRawParameterValue (Parameters::paramLFO2Depth) ? apvts.getRawParameterValue (Parameters::paramLFO2Depth)->load() : 0.0f;

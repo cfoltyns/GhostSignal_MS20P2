@@ -83,6 +83,9 @@ private:
     // Update EnvDisplay from parameter values (two-way sync)
     void syncEnvDisplays();
 
+    // Compute LFO output for visualization (sine, triangle, square, saw, random)
+    float computeLfoOutput (int waveform, float phase, float shape) const;
+
     // Randomize all eligible parameters
     void randomizePatch();
 

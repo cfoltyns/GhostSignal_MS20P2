@@ -249,10 +249,12 @@ void SynthEngine::process (juce::AudioBuffer<float>& buffer,
                             numSamples, pan * mixGain);
         }
     }
+
 }
 
-} // namespace dsp
-
+// ── collectLfoValues ───────────────────────────────────────────────────────────
+// Collect latest LFO output values from active voices for UI visualization
+// This is called from AudioEngine::process after synthEngine.process()
 void SynthEngine::collectLfoValues (float* lfoValues, int numLfos) const
 {
     // Initialize to 0 (no modulation)
@@ -267,11 +269,11 @@ void SynthEngine::collectLfoValues (float* lfoValues, int numLfos) const
 
     for (int i = 0; i < voiceManager.getMaxVoiceSlots(); ++i)
     {
-        Voice* voiceBase = voiceManager.getVoice (i);
+        const Voice* voiceBase = voiceManager.getVoice (i);
         if (voiceBase == nullptr || !voiceBase->isActive())
             continue;
 
-        auto* voice = dynamic_cast<VoiceDSP*>(voiceBase);
+        auto* voice = dynamic_cast<const VoiceDSP*>(voiceBase);
         if (voice == nullptr)
             continue;
 
@@ -284,4 +286,6 @@ void SynthEngine::collectLfoValues (float* lfoValues, int numLfos) const
         }
     }
 }
+
+} // namespace dsp
 

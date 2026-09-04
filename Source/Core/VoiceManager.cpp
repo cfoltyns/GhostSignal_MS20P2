@@ -25,7 +25,7 @@ void VoiceManager::prepare (double sampleRate, int maxBlockSize, const VoiceMana
 
 void VoiceManager::reset()
 {
-    voiceActive.reset();
+        voiceActive.reset();
     activeVoiceCount = 0;
     lastNote = -1;
 
