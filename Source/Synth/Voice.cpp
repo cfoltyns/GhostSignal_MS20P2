@@ -345,3 +345,15 @@ void VoiceDSP::process (juce::AudioBuffer<float>& buffer, int startSample, int n
         offset += thisBlock;
     }
 }
+
+float VoiceDSP::getLfoOutput (int lfoIndex) const
+{
+    switch (lfoIndex)
+    {
+        case 0: return lfo1.getOutput();
+        case 1: return lfo2.getOutput();
+        case 2: return lfo3.getOutput();
+        case 3: return lfo4.getOutput();
+        default: return 0.0f;
+    }
+}

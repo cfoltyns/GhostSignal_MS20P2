@@ -46,9 +46,6 @@ private:
     void layoutRow2 (int x, int y, int totalW, int totalH,
                      int knobD, int smallKnobD);
 
-    // Compute a simulated LFO output value at a given phase for UI animation.
-    float computeLfoOutput (int waveform, float phase, float shape) const;
-
     // Distribute knobs evenly across a rectangle, vertically centred.
     void placeKnobRow (std::initializer_list<juce::Component*> knobs,
                        juce::Rectangle<int> area,

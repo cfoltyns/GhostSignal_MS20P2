@@ -253,3 +253,35 @@ void SynthEngine::process (juce::AudioBuffer<float>& buffer,
 
 } // namespace dsp
 
+void SynthEngine::collectLfoValues (float* lfoValues, int numLfos) const
+{
+    // Initialize to 0 (no modulation)
+    for (int l = 0; l < numLfos; ++l)
+        lfoValues[l] = 0.0f;
+
+    // Scan active voices and collect the latest LFO output values
+    // We take the maximum absolute value across all active voices
+    const int numActiveVoices = voiceManager.getNumActiveVoices();
+    if (numActiveVoices <= 0)
+        return;
+
+    for (int i = 0; i < voiceManager.getMaxVoiceSlots(); ++i)
+    {
+        Voice* voiceBase = voiceManager.getVoice (i);
+        if (voiceBase == nullptr || !voiceBase->isActive())
+            continue;
+
+        auto* voice = dynamic_cast<VoiceDSP*>(voiceBase);
+        if (voice == nullptr)
+            continue;
+
+        for (int l = 0; l < numLfos; ++l)
+        {
+            const float val = voice->getLfoOutput (l);
+            // Keep the value with the largest magnitude (most visible modulation)
+            if (std::abs (val) > std::abs (lfoValues[l]))
+                lfoValues[l] = val;
+        }
+    }
+}
+

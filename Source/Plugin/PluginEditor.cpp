@@ -1758,32 +1758,16 @@ void PluginEditor::timerCallback()
     syncLfoDisplay (lfo3Display, Parameters::paramLFO3Waveform, Parameters::paramLFO3Rate, Parameters::paramLFO3Depth);
     syncLfoDisplay (lfo4Display, Parameters::paramLFO4Waveform, Parameters::paramLFO4Rate, Parameters::paramLFO4Depth);
 
-    auto advancePhase = [](float& phase, float rate)
-    {
-        phase += rate / 30.0f;
-        if (phase >= 1.0f) phase -= 1.0f;
-    };
-
-    const float r1 = apvts.getRawParameterValue (Parameters::paramLFO1Rate) ? apvts.getRawParameterValue (Parameters::paramLFO1Rate)->load() : 1.0f;
-    const float r2 = apvts.getRawParameterValue (Parameters::paramLFO2Rate) ? apvts.getRawParameterValue (Parameters::paramLFO2Rate)->load() : 1.0f;
-    const float r3 = apvts.getRawParameterValue (Parameters::paramLFO3Rate) ? apvts.getRawParameterValue (Parameters::paramLFO3Rate)->load() : 1.0f;
-    const float r4 = apvts.getRawParameterValue (Parameters::paramLFO4Rate) ? apvts.getRawParameterValue (Parameters::paramLFO4Rate)->load() : 1.0f;
-
-    advancePhase (lfoPhase1, r1);
-    advancePhase (lfoPhase2, r2);
-    advancePhase (lfoPhase3, r3);
-    advancePhase (lfoPhase4, r4);
-
     const int d1 = apvts.getRawParameterValue (Parameters::paramLFO1Dest) ? (int) apvts.getRawParameterValue (Parameters::paramLFO1Dest)->load() : 0;
     const int d2 = apvts.getRawParameterValue (Parameters::paramLFO2Dest) ? (int) apvts.getRawParameterValue (Parameters::paramLFO2Dest)->load() : 0;
     const int d3 = apvts.getRawParameterValue (Parameters::paramLFO3Dest) ? (int) apvts.getRawParameterValue (Parameters::paramLFO3Dest)->load() : 0;
     const int d4 = apvts.getRawParameterValue (Parameters::paramLFO4Dest) ? (int) apvts.getRawParameterValue (Parameters::paramLFO4Dest)->load() : 0;
 
-    const int w1 = apvts.getRawParameterValue (Parameters::paramLFO1Waveform) ? (int) apvts.getRawParameterValue (Parameters::paramLFO1Waveform)->load() : 0;
-    const int w2 = apvts.getRawParameterValue (Parameters::paramLFO2Waveform) ? (int) apvts.getRawParameterValue (Parameters::paramLFO2Waveform)->load() : 0;
-    const int w3 = apvts.getRawParameterValue (Parameters::paramLFO3Waveform) ? (int) apvts.getRawParameterValue (Parameters::paramLFO3Waveform)->load() : 0;
-    const int w4 = apvts.getRawParameterValue (Parameters::paramLFO4Waveform) ? (int) apvts.getRawParameterValue (Parameters::paramLFO4Waveform)->load() : 0;
-
+    // Actual LFO output values from DSP (normalized -1..1), thread-safe
+    const float lfoOut1 = audioEngine->getLfoOutput (0);
+    const float lfoOut2 = audioEngine->getLfoOutput (1);
+    const float lfoOut3 = audioEngine->getLfoOutput (2);
+    const float lfoOut4 = audioEngine->getLfoOutput (3);
 
     const float dep1 = apvts.getRawParameterValue (Parameters::paramLFO1Depth) ? apvts.getRawParameterValue (Parameters::paramLFO1Depth)->load() : 0.0f;
     const float dep2 = apvts.getRawParameterValue (Parameters::paramLFO2Depth) ? apvts.getRawParameterValue (Parameters::paramLFO2Depth)->load() : 0.0f;
@@ -1841,53 +1825,35 @@ void PluginEditor::timerCallback()
     // Multiple LFOs can target the same destination — their outputs are summed,
     // and the ring takes the colour of the strongest contributing LFO.
     constexpr int numLfoDests = 15;
-    float       modByDest[numLfoDests] = {};
-    juce::Colour ringColorByDest[numLfoDests];
+    float modByDest[numLfoDests] = {};
 
-    // Distinct hue per LFO so the source is identifiable at a glance
-    const juce::Colour lfoRingColors[4] =
-    {
-        juce::Colour (0xFF5C8A6B),   // LFO1 — moss green
-        juce::Colour (0xFF5C7A9E),   // LFO2 — steel blue
-        juce::Colour (0xFF9E8A5C),   // LFO3 — amber
-        juce::Colour (0xFF9E5C7A)    // LFO4 — muted magenta
-    };
+    // Warm amber/orange-yellow LED-style color for all LFO modulation rings
+    // Consistent vintage analog aesthetic across all routed parameters
+    const juce::Colour lfoAmber = juce::Colour (0xFFE8A020);
 
-    auto addMod = [&] (int dest, float phase, int wave, float shape, float depth,
-                       const juce::Colour& color)
+    auto addMod = [&] (int dest, float lfoOut, float depth)
     {
         if (dest <= 0 || dest >= numLfoDests || depth <= 0.0f)
             return;
 
-        const float lfoOut = computeLfoOutput (wave, phase, shape) * depth;
-        modByDest[dest] += lfoOut;
-
-        // The strongest routed LFO sets the ring colour (simple, stable blend)
-        auto& current = ringColorByDest[dest];
-        if (current.isTransparent() || std::abs (lfoOut) > 0.05f)
-            current = color;
+        modByDest[dest] += lfoOut * depth;
     };
-    addMod (d1, lfoPhase1, w1, 0.5f, dep1, lfoRingColors[0]);
-    addMod (d2, lfoPhase2, w2, 0.5f, dep2, lfoRingColors[1]);
-    addMod (d3, lfoPhase3, w3, 0.5f, dep3, lfoRingColors[2]);
-    addMod (d4, lfoPhase4, w4, 0.5f, dep4, lfoRingColors[3]);
+    addMod (d1, lfoOut1, dep1);
+    addMod (d2, lfoOut2, dep2);
+    addMod (d3, lfoOut3, dep3);
+    addMod (d4, lfoOut4, dep4);
 
     // Drive the animated ring on the knob for each routed destination.
     // Destinations that share a knob (Pitch + Tune) are summed first.
     auto setKnobRing = [&] (LabeledKnob& knob, int destA, int destB = 0)
     {
-        float       value = modByDest[destA];
-        juce::Colour color = ringColorByDest[destA];
+        float value = modByDest[destA];
 
-        if (destB > 0 && std::abs (modByDest[destB]) > std::abs (value))
-        {
-            value = modByDest[destB];
-            color = ringColorByDest[destB];
-        }
-        value += (destB > 0) ? modByDest[destB] * 0.0f : 0.0f; // primary dominates
+        if (destB > 0)
+            value += modByDest[destB];
 
         if (std::abs (value) > 0.001f)
-            knob.setModulationRing (juce::jlimit (-1.0f, 1.0f, value), true, color);
+            knob.setModulationRing (juce::jlimit (-1.0f, 1.0f, value), true, lfoAmber);
         else
             knob.clearModulationRing();
     };

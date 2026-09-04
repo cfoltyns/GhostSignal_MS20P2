@@ -69,10 +69,10 @@ public:
     // slider attachment has been created.
     void setCenterValueAsKnobPercent();
 
-    // Animated LFO modulation ring — draws a colored ring around the knob that
-    // shows the LFO movement. normValue: -1..1 (bipolar LFO output).
+    // Animated LFO modulation ring — draws an amber ring around the knob that
+    // shows the actual LFO movement. normValue: -1..1 (bipolar LFO output).
     // The ring animates around the knob perimeter as the LFO oscillates.
-    void setModulationRing (float normValue, bool show, juce::Colour color = juce::Colour (0xFF5C6B5E))
+    void setModulationRing (float normValue, bool show, juce::Colour color = juce::Colour (0xFFD4A04A))
     {
         lfoModValue = normValue;
         showModRing = show;
@@ -172,7 +172,7 @@ private:
     // Animated LFO modulation ring state
     float lfoModValue { 0.0f };
     bool  showModRing { false };
-    juce::Colour modRingColor { juce::Colour (0xFF5C6B5E) };
+    juce::Colour modRingColor { juce::Colour (0xFFD4A04A) };
 
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LabeledKnob)

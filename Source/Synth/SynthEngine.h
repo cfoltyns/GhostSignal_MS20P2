@@ -60,6 +60,9 @@ public:
     VoiceManager& getVoiceManager() { return voiceManager; }
     int getNumActiveVoices() const { return voiceManager.getNumActiveVoices(); }
 
+    // Collect latest LFO output values from active voices (for UI visualization)
+    void collectLfoValues (float* lfoValues, int numLfos) const;
+
 private:
     void applyDriftToVoice (VoiceDSP& voice, int voiceIndex);
 

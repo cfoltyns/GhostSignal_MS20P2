@@ -245,6 +245,14 @@ void AudioEngine::process(juce::AudioBuffer<float> &buffer,
   // Process synth engine (handles MIDI, voices, drift)
   synthEngine.process(buffer, midi, vp, modMatrix);
 
+  // Collect LFO output values for UI visualization (thread-safe)
+  {
+      float lfoVals[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+      synthEngine.collectLfoValues (lfoVals, 4);
+      for (int l = 0; l < 4; ++l)
+          lfoOutputs[l].store (lfoVals[l]);
+  }
+
   // Master volume (applied BEFORE Tape Delay)
   if (auto *master = apvts.getRawParameterValue(Parameters::paramMasterVolume))
     buffer.applyGain(*master);

@@ -86,6 +86,9 @@ public:
                    float envAttackScale, float envDecayScale, float envReleaseScale,
                    float satOffset, float thermalPitchCents);
 
+    // Get current LFO output value (-1..1 normalized) for UI visualization
+    float getLfoOutput (int lfoIndex) const;
+
 private:
     dsp::VoiceParams params;
 

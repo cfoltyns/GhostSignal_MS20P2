@@ -7,6 +7,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <atomic>
 #include "ModulationMatrix.h"
 #include "PatchBay.h"
 #include "Sequencer.h"
@@ -36,6 +37,10 @@ public:
     fx::EffectsChain& getEffectsChain() { return fxChain; }
     fx::TapeDelay& getTapeDelay() { return tapeDelay; }
 
+    // Thread-safe LFO output values for UI visualization (normalized -1..1)
+    float getLfoOutput (int lfoIndex) const { return lfoOutputs[lfoIndex].load(); }
+    void setLfoOutput (int lfoIndex, float value) { lfoOutputs[lfoIndex].store(value); }
+
 private:
     void handleMidi (const juce::MidiBuffer& midi);
     void renderVoices (juce::AudioBuffer<float>& buffer, int numSamples);
@@ -51,4 +56,7 @@ private:
     Sequencer sequencer;
     fx::EffectsChain fxChain;
     fx::TapeDelay tapeDelay;
+
+    // Thread-safe LFO output values for UI visualization (normalized -1..1)
+    std::atomic<float> lfoOutputs[4] { {0.0f}, {0.0f}, {0.0f}, {0.0f} };
 };
