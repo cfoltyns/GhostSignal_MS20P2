@@ -11,10 +11,16 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 # ------------------------------
-# JUCE (vendored local copy)
+# JUCE (added as subdirectory via Git submodule)
 # ------------------------------
+add_subdirectory(ThirdParty/JUCE)
+
+# Set JUCE build options
+set(JUCE_ENABLE_MODULE_LOGGING ON CACHE BOOL "" FORCE)
+set(JUCE_BUILD_MINGW  OFF CACHE BOOL "" FORCE)
+
+# Helper variable for JUCE modules path
 set(JUCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/JUCE")
-add_subdirectory("${JUCE_DIR}" "${CMAKE_BINARY_DIR}/JUCE")
 
 # ------------------------------
 # Plugin code
