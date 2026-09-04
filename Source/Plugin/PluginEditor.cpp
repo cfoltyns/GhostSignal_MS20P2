@@ -1836,10 +1836,11 @@ void PluginEditor::timerCallback()
     // Parameters::lfoDestinationChoices:
     //   0 Off | 1 VCO1 Pitch | 2 VCO2 Pitch | 3 VCO1 PWM | 4 VCO2 PWM
     //   5 VCO1 Tune | 6 VCO2 Tune | 7 VCO1 Level | 8 VCO2 Level
-    //   9 Filter Cutoff | 10 Filter Res | 11 Amp Gain | 12 Pan
+    //   9 Filter Cutoff | 10 Filter Res | 11 HPF Cutoff | 12 HPF Res
+    //   13 Amp Gain | 14 Pan
     // Multiple LFOs can target the same destination — their outputs are summed,
     // and the ring takes the colour of the strongest contributing LFO.
-    constexpr int numLfoDests = 13;
+    constexpr int numLfoDests = 15;
     float       modByDest[numLfoDests] = {};
     juce::Colour ringColorByDest[numLfoDests];
 
@@ -1899,8 +1900,10 @@ void PluginEditor::timerCallback()
     setKnobRing (mixerVco2Level,  8);            // VCO2 Level
     setKnobRing (lpfCutoff,       9);            // Filter Cutoff
     setKnobRing (lpfRes,          10);           // Filter Res
-    setKnobRing (ampGain,         11);           // Amp Gain
-    setKnobRing (pan,             12);           // Pan
+    setKnobRing (hpfCutoff,       11);           // HPF Cutoff
+    setKnobRing (hpfRes,          12);           // HPF Res
+    setKnobRing (ampGain,         13);           // Amp Gain
+    setKnobRing (pan,             14);           // Pan
 
     auto setKnobLed = [&](LabeledKnob& knob, const juce::String& paramId, float defaultVal)
     {

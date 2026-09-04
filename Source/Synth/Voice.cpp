@@ -196,6 +196,8 @@ void VoiceDSP::process (juce::AudioBuffer<float>& buffer, int startSample, int n
         float osc2GainMod  = 0.0f;
         float cutoffMod    = 0.0f;  // multiplicative cutoff factor
         float resMod       = 0.0f;  // additive resonance
+        float hpfCutoffMod = 0.0f;  // multiplicative HPF cutoff factor
+        float hpfResMod    = 0.0f;  // additive HPF resonance
         float ampGainMod   = 0.0f;  // additive amp gain offset
         float panMod       = 0.0f;  // additive pan offset
 
@@ -217,8 +219,10 @@ void VoiceDSP::process (juce::AudioBuffer<float>& buffer, int startSample, int n
                 case  8: osc2GainMod  += v * 0.5f;  break;  // VCO2 Level ±50%
                 case  9: cutoffMod    += v * 1.5f;  break;  // Filter Cutoff ×0.5..2.5
                 case 10: resMod       += v * 0.3f;   break;  // Filter Res ±30%
-                case 11: ampGainMod   += v * 0.5f;  break;  // Amp Gain ±50%
-                case 12: panMod       += v * 0.3f;   break;  // Pan ±30%
+                case 11: hpfCutoffMod += v * 1.0f;  break;  // HPF Cutoff ×0..2
+                case 12: hpfResMod    += v * 0.3f;   break;  // HPF Res ±30%
+                case 13: ampGainMod   += v * 0.5f;  break;  // Amp Gain ±50%
+                case 14: panMod       += v * 0.3f;   break;  // Pan ±30%
                 default: break;
             }
         }
@@ -282,6 +286,14 @@ void VoiceDSP::process (juce::AudioBuffer<float>& buffer, int startSample, int n
 
         // Apply LFO resonance modulation
         params.lpf.resonance = juce::jlimit (0.0f, 1.0f, params.lpf.resonance + resMod);
+
+        // Apply LFO modulation to HPF cutoff and resonance. The HPF cutoff
+        // range is 20..1000 Hz (see Parameters::addFloat for paramHPFCutoff),
+        // so the multiplicative factor is clamped to keep it sweepable but
+        // always inside the parameter's own bounds.
+        params.hpf.cutoff    = juce::jlimit (20.0f, 1000.0f,
+                                             params.hpf.cutoff * (1.0f + hpfCutoffMod));
+        params.hpf.resonance = juce::jlimit (0.0f, 1.0f, params.hpf.resonance + hpfResMod);
 
         osc1.setParameters (params.osc1);
         osc2.setParameters (params.osc2);

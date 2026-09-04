@@ -8,7 +8,7 @@
 
 const juce::StringArray Parameters::oscWaveformChoices = { "Triangle", "Saw", "Square", "Pulse", "Sine", "Noise", "Super Saw", "Ring Mod" };
 const juce::StringArray Parameters::lfoWaveformChoices = { "Sine", "Triangle", "Square", "Sawtooth", "Random" };
-const juce::StringArray Parameters::lfoDestinationChoices = { "Off", "VCO1 Pitch", "VCO2 Pitch", "VCO1 PWM", "VCO2 PWM", "VCO1 Tune", "VCO2 Tune", "VCO1 Level", "VCO2 Level", "Filter Cutoff", "Filter Res", "Amp Gain", "Pan" };
+const juce::StringArray Parameters::lfoDestinationChoices = { "Off", "VCO1 Pitch", "VCO2 Pitch", "VCO1 PWM", "VCO2 PWM", "VCO1 Tune", "VCO2 Tune", "VCO1 Level", "VCO2 Level", "Filter Cutoff", "Filter Res", "HPF Cutoff", "HPF Res", "Amp Gain", "Pan" };
 
 const juce::StringArray Parameters::noiseTypeChoices = { "Brown", "Pink", "White", "Blue", "Violet" };
 
