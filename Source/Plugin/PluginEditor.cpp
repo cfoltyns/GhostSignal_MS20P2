@@ -1830,24 +1830,77 @@ void PluginEditor::timerCallback()
     syncScope (osc1Scope, Parameters::paramOsc1Waveform, pw1Base, Parameters::paramOsc1Octave, 2.0f);
     syncScope (osc2Scope, Parameters::paramOsc2Waveform, pw2Base, Parameters::paramOsc2Octave, 2.0f);
 
-    float pw1Mod = 0.0f, pw2Mod = 0.0f;
-    auto addMod = [&](int dest, float phase, int wave, float shape, float depth)
-    {
-        const float lfoOut = computeLfoOutput (wave, phase, shape) * depth * 0.3f;
-        if (dest == 3) pw1Mod += lfoOut;
-        else if (dest == 4) pw2Mod += lfoOut;
-    };
-    addMod (d1, lfoPhase1, w1, 0.5f, dep1);
-    addMod (d2, lfoPhase2, w2, 0.5f, dep2);
-    addMod (d3, lfoPhase3, w3, 0.5f, dep3);
-    addMod (d4, lfoPhase4, w4, 0.5f, dep4);
+    // ── LFO modulation rings ────────────────────────────────────────────────────
+    // Every knob/feature an LFO is routed to gets an animated colored ring that
+    // sweeps with the LFO's movement. Destination indices come from
+    // Parameters::lfoDestinationChoices:
+    //   0 Off | 1 VCO1 Pitch | 2 VCO2 Pitch | 3 VCO1 PWM | 4 VCO2 PWM
+    //   5 VCO1 Tune | 6 VCO2 Tune | 7 VCO1 Level | 8 VCO2 Level
+    //   9 Filter Cutoff | 10 Filter Res | 11 Amp Gain | 12 Pan
+    // Multiple LFOs can target the same destination — their outputs are summed,
+    // and the ring takes the colour of the strongest contributing LFO.
+    constexpr int numLfoDests = 13;
+    float       modByDest[numLfoDests] = {};
+    juce::Colour ringColorByDest[numLfoDests];
 
-    const bool pw1Modulated = (std::abs (pw1Mod) > 0.001f);
-    const bool pw2Modulated = (std::abs (pw2Mod) > 0.001f);
-    osc1PulseWidth.setModulationIndicator (juce::jlimit (0.0f, 1.0f, pw1Base + pw1Mod), pw1Modulated);
-    osc2PulseWidth.setModulationIndicator (juce::jlimit (0.0f, 1.0f, pw2Base + pw2Mod), pw2Modulated);
-    if (! pw1Modulated) osc1PulseWidth.clearModulationIndicator();
-    if (! pw2Modulated) osc2PulseWidth.clearModulationIndicator();
+    // Distinct hue per LFO so the source is identifiable at a glance
+    const juce::Colour lfoRingColors[4] =
+    {
+        juce::Colour (0xFF5C8A6B),   // LFO1 — moss green
+        juce::Colour (0xFF5C7A9E),   // LFO2 — steel blue
+        juce::Colour (0xFF9E8A5C),   // LFO3 — amber
+        juce::Colour (0xFF9E5C7A)    // LFO4 — muted magenta
+    };
+
+    auto addMod = [&] (int dest, float phase, int wave, float shape, float depth,
+                       const juce::Colour& color)
+    {
+        if (dest <= 0 || dest >= numLfoDests || depth <= 0.0f)
+            return;
+
+        const float lfoOut = computeLfoOutput (wave, phase, shape) * depth;
+        modByDest[dest] += lfoOut;
+
+        // The strongest routed LFO sets the ring colour (simple, stable blend)
+        auto& current = ringColorByDest[dest];
+        if (current.isTransparent() || std::abs (lfoOut) > 0.05f)
+            current = color;
+    };
+    addMod (d1, lfoPhase1, w1, 0.5f, dep1, lfoRingColors[0]);
+    addMod (d2, lfoPhase2, w2, 0.5f, dep2, lfoRingColors[1]);
+    addMod (d3, lfoPhase3, w3, 0.5f, dep3, lfoRingColors[2]);
+    addMod (d4, lfoPhase4, w4, 0.5f, dep4, lfoRingColors[3]);
+
+    // Drive the animated ring on the knob for each routed destination.
+    // Destinations that share a knob (Pitch + Tune) are summed first.
+    auto setKnobRing = [&] (LabeledKnob& knob, int destA, int destB = 0)
+    {
+        float       value = modByDest[destA];
+        juce::Colour color = ringColorByDest[destA];
+
+        if (destB > 0 && std::abs (modByDest[destB]) > std::abs (value))
+        {
+            value = modByDest[destB];
+            color = ringColorByDest[destB];
+        }
+        value += (destB > 0) ? modByDest[destB] * 0.0f : 0.0f; // primary dominates
+
+        if (std::abs (value) > 0.001f)
+            knob.setModulationRing (juce::jlimit (-1.0f, 1.0f, value), true, color);
+        else
+            knob.clearModulationRing();
+    };
+
+    setKnobRing (osc1PulseWidth,  3);            // VCO1 PWM
+    setKnobRing (osc2PulseWidth,  4);            // VCO2 PWM
+    setKnobRing (osc1Tune,        1, 5);         // VCO1 Pitch / Tune
+    setKnobRing (osc2Tune,        2, 6);         // VCO2 Pitch / Tune
+    setKnobRing (mixerVco1Level,  7);            // VCO1 Level
+    setKnobRing (mixerVco2Level,  8);            // VCO2 Level
+    setKnobRing (lpfCutoff,       9);            // Filter Cutoff
+    setKnobRing (lpfRes,          10);           // Filter Res
+    setKnobRing (ampGain,         11);           // Amp Gain
+    setKnobRing (pan,             12);           // Pan
 
     auto setKnobLed = [&](LabeledKnob& knob, const juce::String& paramId, float defaultVal)
     {

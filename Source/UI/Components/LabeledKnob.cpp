@@ -204,25 +204,91 @@ void LabeledKnob::paint (juce::Graphics& g)
         g.fillEllipse (cx - ledRadius * 2.0f, cy - ledRadius * 2.0f, ledRadius * 4.0f, ledRadius * 4.0f);
     }
 
-    // Draw modulation indicator dot (if active) -- shows where an LFO is
-    // currently pushing the knob value, on the rotary arc perimeter.
-    if (showModIndicator)
+    // Animated LFO modulation ring — a colored ring around the knob showing
+    // the LFO movement. The ring track shows that modulation is routed; the
+    // bright glowing dot sweeps along it with the LFO's current output value.
+    if (showModRing)
     {
         const juce::Rectangle<int> sliderBounds = slider.getBounds();
         const float cx = (float) sliderBounds.getCentreX();
         const float cy = (float) sliderBounds.getCentreY();
-        const float radius = (float) sliderBounds.getWidth() * 0.43f;
+        // Ring sits just outside the knob body (body ≈ 0.42 * width)
+        const float ringRadius = (float) sliderBounds.getWidth() * 0.47f;
 
+        // Match the rotary arc: 0.75 pi (bottom-left) → 2.25 pi (bottom-right)
         const float rotaryStart = juce::MathConstants<float>::pi * 0.75f;
         const float rotaryEnd   = juce::MathConstants<float>::pi * 2.25f;
-        const float angle = rotaryStart + juce::jlimit (0.0f, 1.0f, modulationValue)
-                              * (rotaryEnd - rotaryStart);
 
-        const float dotX = cx + std::cos (angle) * radius;
-        const float dotY = cy + std::sin (angle) * radius;
+        // Map the bipolar LFO output (-1..1) onto the full rotary arc so the
+        // dot sweeps bottom-left → top → bottom-right and back as the LFO cycles.
+        const float norm = juce::jlimit (0.0f, 1.0f, (lfoModValue + 1.0f) * 0.5f);
+        const float angle = rotaryStart + norm * (rotaryEnd - rotaryStart);
 
-        g.setColour (GhostSignalLookAndFeel::accent.withAlpha (0.8f));
-        g.fillEllipse (dotX - 2.5f, dotY - 2.5f, 5.0f, 5.0f);
+        // 1. Base ring track — dim full-travel arc showing modulation is routed
+        juce::Path ringTrack;
+        ringTrack.addCentredArc (cx, cy, ringRadius, ringRadius, 0.0f,
+                                 rotaryStart, rotaryEnd, true);
+        // Base ring brightness breathes with the LFO magnitude for extra life
+        const float pulse = 0.18f + 0.12f * std::abs (lfoModValue);
+        g.setColour (modRingColor.withAlpha (pulse));
+        g.strokePath (ringTrack, juce::PathStrokeType (2.0f,
+                                                       juce::PathStrokeType::curved,
+                                                       juce::PathStrokeType::rounded));
+
+        // 2. Trail arc — comet tail fading behind the moving dot
+        {
+            const float trailSpan = 0.6f; // radians of tail behind the dot
+            const float trailStart = angle - trailSpan;
+
+            const int trailSteps = 8;
+            for (int i = 0; i < trailSteps; ++i)
+            {
+                const float t0 = (float) i / (float) trailSteps;
+                const float t1 = (float) (i + 1) / (float) trailSteps;
+
+                juce::Path trailSeg;
+                trailSeg.addCentredArc (cx, cy, ringRadius, ringRadius, 0.0f,
+                                        trailStart + t0 * trailSpan,
+                                        trailStart + t1 * trailSpan, true);
+
+                // Fade from nearly-invisible (oldest) to bright (newest)
+                const float alpha = 0.35f * t1 * t1;
+                g.setColour (modRingColor.withAlpha (alpha));
+                g.strokePath (trailSeg, juce::PathStrokeType (2.2f,
+                                                              juce::PathStrokeType::curved,
+                                                              juce::PathStrokeType::rounded));
+            }
+        }
+
+        // 3. Leading arc — short bright segment ahead of the dot (motion direction)
+        {
+            juce::Path leadSeg;
+            leadSeg.addCentredArc (cx, cy, ringRadius, ringRadius, 0.0f,
+                                   angle, angle + 0.25f, true);
+            g.setColour (modRingColor.withAlpha (0.85f));
+            g.strokePath (leadSeg, juce::PathStrokeType (2.6f,
+                                                         juce::PathStrokeType::curved,
+                                                         juce::PathStrokeType::rounded));
+        }
+
+        // 4. Glowing dot at the current LFO position
+        const float dotX = cx + std::cos (angle) * ringRadius;
+        const float dotY = cy + std::sin (angle) * ringRadius;
+        const float dotR = 3.2f;
+
+        // Outer glow halo
+        g.setColour (modRingColor.withAlpha (0.35f));
+        g.fillEllipse (dotX - dotR * 2.4f, dotY - dotR * 2.4f,
+                       dotR * 4.8f, dotR * 4.8f);
+
+        // Mid glow
+        g.setColour (modRingColor.withAlpha (0.65f));
+        g.fillEllipse (dotX - dotR * 1.5f, dotY - dotR * 1.5f,
+                       dotR * 3.0f, dotR * 3.0f);
+
+        // Bright core
+        g.setColour (modRingColor.brighter (0.35f));
+        g.fillEllipse (dotX - dotR, dotY - dotR, dotR * 2.0f, dotR * 2.0f);
     }
 }
 

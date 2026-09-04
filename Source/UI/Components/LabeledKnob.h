@@ -13,7 +13,8 @@
 #include <functional>
 #include <utility>
 
-class LabeledKnob : public juce::Component, private juce::Slider::Listener
+class LabeledKnob : public juce::Component,
+                     private juce::Slider::Listener
 {
 public:
     LabeledKnob (const juce::String& labelText);
@@ -68,11 +69,21 @@ public:
     // slider attachment has been created.
     void setCenterValueAsKnobPercent();
 
-    // Modulation indicator — draws a small dot on the knob perimeter showing
-    // where an external modulation source (e.g. LFO) is currently pushing the value.
-    // normValue: 0..1 mapped onto the knob's rotary arc.
-    void setModulationIndicator (float normValue, bool show) { modulationValue = normValue; showModIndicator = show; repaint(); }
-    void clearModulationIndicator() { showModIndicator = false; repaint(); }
+    // Animated LFO modulation ring — draws a colored ring around the knob that
+    // shows the LFO movement. normValue: -1..1 (bipolar LFO output).
+    // The ring animates around the knob perimeter as the LFO oscillates.
+    void setModulationRing (float normValue, bool show, juce::Colour color = juce::Colour (0xFF5C6B5E))
+    {
+        lfoModValue = normValue;
+        showModRing = show;
+        modRingColor = color;
+        repaint();
+    }
+    void clearModulationRing() { showModRing = false; repaint(); }
+
+    // Legacy dot indicator (kept for backward compatibility)
+    void setModulationIndicator (float normValue, bool show) { setModulationRing(normValue, show); }
+    void clearModulationIndicator() { clearModulationRing(); }
 
     void paint (juce::Graphics& g) override;
     void resized() override;
@@ -158,9 +169,11 @@ private:
                                 // knob body can't cover the centre text
     bool autoCenterText { false };
 
-    // Modulation indicator state
-    float modulationValue { 0.0f };
-    bool  showModIndicator { false };
+    // Animated LFO modulation ring state
+    float lfoModValue { 0.0f };
+    bool  showModRing { false };
+    juce::Colour modRingColor { juce::Colour (0xFF5C6B5E) };
+
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LabeledKnob)
 };

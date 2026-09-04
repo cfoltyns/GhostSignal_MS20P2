@@ -42,6 +42,17 @@ public:
     // Show/hide the waveform icon in the center (when true, draws icon instead of text)
     void setShowWaveformIcon (bool show);
 
+    // Animated LFO modulation ring — draws a colored ring around the knob that
+    // pulses with the LFO movement. normValue: -1..1 (bipolar LFO output).
+    void setModulationRing (float normValue, bool show, juce::Colour color = juce::Colour (0xFF5C6B5E))
+    {
+        lfoModValue = normValue;
+        showModRing = show;
+        modRingColor = color;
+        repaint();
+    }
+    void clearModulationRing() { showModRing = false; repaint(); }
+
     // Callback when waveform value changes
     std::function<void()> onWaveformChanged;
 
@@ -98,6 +109,11 @@ private:
     float textValuePositions[8];
     int numTextValues { 0 };
     bool showTextValues { false };
+
+    // Animated LFO modulation ring state
+    float lfoModValue { 0.0f };
+    bool  showModRing { false };
+    juce::Colour modRingColor { juce::Colour (0xFF5C6B5E) };
 
     void updateCenterTextFromValue();
     static int getWaveformIndexFromValue (double value);

@@ -133,9 +133,68 @@ int WaveformKnob::getWaveformIndexFromValue (double value)
     return idx;
 }
 
-void WaveformKnob::paint (juce::Graphics&)
+void WaveformKnob::paint (juce::Graphics& g)
 {
-    // WaveformKnob delegates rendering to the WaveformSlider
+    // Draw the animated LFO modulation ring on top of the slider
+    if (showModRing)
+    {
+        const auto bounds = slider.getBounds().toFloat();
+        const float cx = bounds.getCentreX();
+        const float cy = bounds.getCentreY();
+        const float knobRadius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
+        const float ringOuterR = knobRadius * 0.92f;
+        const float ringInnerR = knobRadius * 0.82f;
+        const float ringThickness = ringOuterR - ringInnerR;
+
+        const float rotaryStart = juce::MathConstants<float>::pi * 0.75f;
+        const float rotaryEnd   = juce::MathConstants<float>::pi * 2.25f;
+        const float fullSweep = rotaryEnd - rotaryStart;
+
+        const float baseAngle = rotaryStart + (float) slider.getValue() * fullSweep;
+        const float modSweep = lfoModValue * fullSweep * 0.4f;
+        const float arcStart = juce::jlimit (rotaryStart, rotaryEnd, baseAngle - std::abs (modSweep) * 0.5f);
+        const float arcEnd   = juce::jlimit (rotaryStart, rotaryEnd, baseAngle + std::abs (modSweep) * 0.5f);
+
+        if (std::abs (modSweep) > 0.01f)
+        {
+            juce::Path modArc;
+            modArc.addCentredArc (cx, cy, (ringOuterR + ringInnerR) * 0.5f,
+                                  (ringOuterR + ringInnerR) * 0.5f,
+                                  0.0f, arcStart, arcEnd, true);
+
+            // Glow layer
+            g.setColour (modRingColor.withAlpha (0.25f));
+            g.strokePath (modArc, juce::PathStrokeType (ringThickness + 3.0f,
+                                                       juce::PathStrokeType::curved,
+                                                       juce::PathStrokeType::rounded));
+
+            // Main ring
+            g.setColour (modRingColor.withAlpha (0.85f));
+            g.strokePath (modArc, juce::PathStrokeType (ringThickness,
+                                                       juce::PathStrokeType::curved,
+                                                       juce::PathStrokeType::rounded));
+
+            // Bright center line
+            g.setColour (modRingColor.brighter (0.4f).withAlpha (0.95f));
+            g.strokePath (modArc, juce::PathStrokeType (ringThickness * 0.35f,
+                                                       juce::PathStrokeType::curved,
+                                                       juce::PathStrokeType::rounded));
+        }
+
+        // Draw a small indicator dot at the current LFO position
+        const float lfoAngle = juce::jlimit (rotaryStart, rotaryEnd, baseAngle + modSweep * 0.5f);
+        const float dotR = ringThickness * 0.5f;
+        const float dotX = cx + std::cos (lfoAngle) * (ringOuterR + ringInnerR) * 0.5f;
+        const float dotY = cy + std::sin (lfoAngle) * (ringOuterR + ringInnerR) * 0.5f;
+
+        // Glow
+        g.setColour (modRingColor.withAlpha (0.35f));
+        g.fillEllipse (dotX - dotR * 2.0f, dotY - dotR * 2.0f, dotR * 4.0f, dotR * 4.0f);
+
+        // Main dot
+        g.setColour (modRingColor.brighter (0.3f));
+        g.fillEllipse (dotX - dotR, dotY - dotR, dotR * 2.0f, dotR * 2.0f);
+    }
 }
 
 void WaveformKnob::resized()
