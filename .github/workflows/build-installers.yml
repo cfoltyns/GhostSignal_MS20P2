@@ -1,0 +1,166 @@
+name: Build Installers
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: build-installers-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-latest
+            artifact: GhostSignalMS20P-0.1.0-Windows
+          - name: macOS (Intel)
+            os: macos-13
+            artifact: GhostSignalMS20P-0.1.0-macOS-x64
+          - name: macOS (Apple Silicon)
+            os: macos-latest
+            artifact: GhostSignalMS20P-0.1.0-macOS-arm64
+          - name: Linux x64
+            os: ubuntu-latest
+            artifact: GhostSignalMS20P-0.1.0-Linux
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up CMake
+        uses: jwlawson/Setup-cmake@v2
+        with:
+          cmake-version: "3.31.x"
+
+      - name: Install NSIS (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          choco install nsis -y --no-progress
+          echo "C:\Program Files (x86)\NSIS" >> "$GITHUB_PATH"
+
+      - name: Install JUCE build deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libx11-dev \
+            libxext-dev \
+            libxrender-dev \
+            libfreetype6-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libcurl4-openssl-dev \
+            rpm \
+            pkg-config
+
+      - name: Configure
+        run: cmake -S . -B build
+
+      - name: Build all formats
+        run: cmake --build build --config Release
+
+      - name: Package (Windows - NSIS installer + ZIP)
+        if: runner.os == 'Windows'
+        run: cpack -C Release -G "NSIS;ZIP" build
+
+      - name: Package (Linux - DEB / RPM / TGZ)
+        if: runner.os == 'Linux'
+        run: cpack -G "DEB;RPM;TGZ" build
+
+      - name: Package (macOS - DMG + ZIP)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -e
+          ART="build/GhostSignalMS20P_artefacts"
+          if [ -d "$ART/Release" ]; then ART="$ART/Release"; fi
+          mkdir -p dist_mac/VST3 dist_mac/AU
+          cp -R "$ART/Standalone/GhostSignalMS20P.app" dist_mac/
+          cp -R "$ART/VST3/GhostSignalMS20P.vst3" dist_mac/VST3/
+          cp -R "$ART/AU/GhostSignalMS20P.component" dist_mac/AU/
+          cat > dist_mac/README.txt <<'EOF2'
+Ghost Signal MS20P - macOS Install
+===================================
+
+1. STANDALONE APP
+   Drag "GhostSignalMS20P.app" into your Applications folder.
+2. VST3 PLUGIN
+   Copy the VST3 folder into      ~/Library/Audio/Plug-Ins/
+3. AU PLUGIN
+   Copy the AU folder into        ~/Library/Audio/Plug-Ins/
+
+Then restart your DAW and rescan plug-ins. On first launch of an
+unsigned app, right-click it and choose Open to bypass Gatekeeper.
+EOF2
+          hdiutil create -volname "Ghost Signal MS20P" -srcfolder dist_mac -ov "${{ matrix.artifact }}.dmg"
+          ( cd dist_mac && zip -r "../${{ matrix.artifact }}.zip" . )
+          ls -la ./*.dmg ./*.zip
+
+      - name: Collect artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp build/*.exe dist/ 2>/dev/null || true
+          cp build/*.zip dist/ 2>/dev/null || true
+          ls -la dist
+
+      - name: Collect artifacts (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dist
+          cp ./*.dmg dist/ 2>/dev/null || true
+          cp ./*.zip dist/ 2>/dev/null || true
+          ls -la dist
+
+      - name: Collect artifacts (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist
+          cp build/*.deb    dist/ 2>/dev/null || true
+          cp build/*.rpm    dist/ 2>/dev/null || true
+          cp build/*.tar.gz dist/ 2>/dev/null || true
+          ls -la dist
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all installers
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create / update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          gh release create "${TAG}" release-assets/* \
+            --title "Ghost Signal MS20P ${TAG}" \
+            --notes "One-click installers for Windows, macOS (Intel + Apple Silicon) and Linux." \
+            || gh release upload "${TAG}" release-assets/* --clobber

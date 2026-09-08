@@ -185,6 +185,58 @@ cmd /c rmdir /s /q build
 cmake -S . -B build
 ```
 
+## One-Click Installer
+
+Every platform gets a ready-to-run installer — there is **no need to open a
+terminal** for end users. GitHub Actions (`.github/workflows/build-installers.yml`)
+builds the project on Windows, macOS (Intel **and** Apple Silicon) and Linux on
+every push, packages the installers and attaches them to GitHub Releases when
+you tag a release (`git tag v0.1.0 && git push --tags`).
+
+### What you get
+
+| Platform | File | What it installs |
+|----------|------|------------------|
+| Windows  | `GhostSignalMS20P-0.1.0-Windows.exe` | VST3 plugin (user + system if admin), Standalone app, Start-Menu entries |
+| macOS    | `GhostSignalMS20P-0.1.0-macOS-*.dmg` | VST3, AU and Standalone app (drag to Applications) |
+| Linux    | `.deb` / `.rpm` / `.tar.gz` | VST3 plugin + Standalone app (`/opt/GhostSignalMS20P`) |
+
+### Build the installers locally
+
+```sh
+# Build the project
+cmake -S . -B build
+cmake --build build --config Release
+
+# Windows:  NSIS installer + ZIP
+cpack -C Release -G "NSIS;ZIP" build
+
+# macOS:    ZIP in CPack layout (DMG is produced by CI's hdiutil step)
+cpack -C Release -G "ZIP" build
+
+# Linux:    DEB / RPM / tar.gz
+cpack -G "DEB;RPM;TGZ" build
+```
+
+Packages land in the project `build/` directory.
+
+### One-click install scripts (from a checkout or package)
+
+For developers or manual installs, double-clickable scripts are included that
+copy the built artifacts into the correct user plug-in folders:
+
+- **Windows** – double-click `Install_GhostSignalMS20P.bat`
+  VST3 → `%LOCALAPPDATA%\Programs\Common\VST3\`, app → `%LOCALAPPDATA%\Programs\GhostSignalMS20P\`
+- **macOS** – double-click `Install_GhostSignalMS20P.command`
+  VST3 → `~/Library/Audio/Plug-Ins/VST3`, AU → `~/Library/Audio/Plug-Ins/Components`,
+  app → `/Applications` (or `~/Applications`)
+- **Linux** – run `./Install_GhostSignalMS20P.sh`
+  VST3 → `~/.vst3/`, app → `~/.local/bin/` (system paths when run as root)
+
+Each script resolves the artifacts whether you run it from a fresh source
+checkout (after `cmake --build build --config Release`) or from an unpacked
+installer package.
+
 ## License
 
 Proprietary. All rights reserved. Ghost Signal 2026.
