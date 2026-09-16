@@ -3,9 +3,9 @@
  *
  * (c) 2026 Ghost Signal
  *
- * Description: Premium industrial panel — recessed dark body with brushed-metal
- *              scan-line texture, left accent stripe, inner shadow, and a plain
- *              white section title centred over a full-width hairline divider.
+ * Description: Premium industrial panel — flat uniform grey body, left accent
+ *              stripe, inner shadow, and a plain white section title centred
+ *              over a full-width hairline divider.
  */
 
 #include "Panel.h"
@@ -45,26 +45,11 @@ void Panel::paint (juce::Graphics& g)
     }
 
     // ── Body background ───────────────────────────────────────────────────────
+    // Flat, uniform grey — deliberately no gradient, scan lines, stripes, noise
+    // or any other texture, so each section reads as a clean solid panel.
     {
-        juce::ColourGradient bg;
-        bg.point1 = { 0.0f, 0.0f };
-        bg.point2 = { 0.0f, h };
-        bg.addColour (0.00f, GhostSignalLookAndFeel::panel);
-        bg.addColour (0.50f, GhostSignalLookAndFeel::panel.darker (0.03f));
-        bg.addColour (1.00f, GhostSignalLookAndFeel::panel.darker (0.06f));
-        g.setGradientFill (bg);
+        g.setColour (GhostSignalLookAndFeel::panel);
         g.fillRoundedRectangle (bounds, corner);
-    }
-
-    // ── Brushed-metal scan-line texture ────────────────────────────────────────
-    {
-        g.saveState();
-        g.reduceClipRegion (bounds.reduced (0.5f).toNearestInt());
-        g.setColour (juce::Colour (0x06FFFFFF));  // ~2.4% white
-        for (float lineY = 0.0f; lineY < h; lineY += 3.0f)
-            g.drawHorizontalLine (static_cast<int> (bounds.getY() + lineY),
-                                  bounds.getX(), bounds.getRight());
-        g.restoreState();
     }
 
     // ── Left accent stripe ────────────────────────────────────────────────────

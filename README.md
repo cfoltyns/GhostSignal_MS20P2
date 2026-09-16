@@ -153,8 +153,9 @@ The interface features a complete redesign with a clean, modern, premium aesthet
 - **Visual hierarchy**: Important controls (Cutoff, Resonance, Master Volume) are larger;
   secondary controls (fine tune, modulation amounts) are smaller
 - **Typography**: Clean sans-serif with clear section labels and proportional sizing
-- **Depth & texture**: Subtle inner shadows, beveled edges, and brushed-metal scan-line
-  textures without looking dated
+- **Depth & texture**: Flat, uniform grey section panels with a white centred title over
+  a full-width hairline divider — plus subtle inner shadows and beveled edges, no
+  scan lines or background patterns
 
 ### Ghost Signal Logo
 

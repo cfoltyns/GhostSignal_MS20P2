@@ -556,13 +556,6 @@ void PluginEditor::paint (juce::Graphics& g)
         g.fillRect (bounds);
     }
 
-    // Subtle brushed-metal scan-line texture across entire background
-    {
-        g.setColour (juce::Colour (0x04FFFFFF));
-        for (float lineY = 0.0f; lineY < h; lineY += 3.0f)
-            g.drawHorizontalLine (static_cast<int> (lineY), 0.0f, w);
-    }
-
     // Vertical dividers between major sections (subtle)
     // Aligned to the VCO1 | VCO2 | Sub | Mixer | Filter | Spacer boundaries
     {
