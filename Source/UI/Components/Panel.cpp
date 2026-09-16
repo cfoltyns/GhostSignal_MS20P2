@@ -4,8 +4,8 @@
  * (c) 2026 Ghost Signal
  *
  * Description: Premium industrial panel — recessed dark body with brushed-metal
- *              scan-line texture, left accent stripe, inner shadow, and
- *              proportional title bar.
+ *              scan-line texture, left accent stripe, inner shadow, and a plain
+ *              white section title centred over a full-width hairline divider.
  */
 
 #include "Panel.h"
@@ -16,8 +16,8 @@ Panel::Panel (const juce::String& panelTitle)
     titleText = panelTitle;
 
     title.setText (panelTitle, juce::dontSendNotification);
-    title.setJustificationType (juce::Justification::centredLeft);
-    title.setColour (juce::Label::textColourId, GhostSignalLookAndFeel::textPrimary);
+    title.setJustificationType (juce::Justification::centred);
+    title.setColour (juce::Label::textColourId, juce::Colours::white);
     title.setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
     title.setFont (GhostSignalLookAndFeel::getSectionTitleFont (28));
 
@@ -32,7 +32,6 @@ void Panel::addAndMakeVisibleChild (juce::Component& c)
 void Panel::paint (juce::Graphics& g)
 {
     const auto bounds    = getLocalBounds().toFloat();
-    const float w        = bounds.getWidth();
     const float h        = bounds.getHeight();
     const float corner   = 6.0f;
     const float titleH   = static_cast<float> (getTitleAreaHeight());
@@ -68,23 +67,6 @@ void Panel::paint (juce::Graphics& g)
         g.restoreState();
     }
 
-    // ── Title bar strip ────────────────────────────────────────────────────────
-    // Skipped entirely for panels without a title (titleText empty).
-    if (titleText.isNotEmpty())
-    {
-        juce::Path titlePath;
-        titlePath.addRoundedRectangle (0.0f, 0.0f, w, titleH,
-                                       corner, corner,
-                                       true, true, false, false);
-        g.setColour (GhostSignalLookAndFeel::accent);
-        g.fillPath (titlePath);
-
-        // Title bar bottom divider
-        g.setColour (juce::Colour (0xFF080808));
-        g.drawHorizontalLine (static_cast<int> (titleH),
-                              accentW, w);
-    }
-
     // ── Left accent stripe ────────────────────────────────────────────────────
     {
         juce::Path stripe;
@@ -93,6 +75,34 @@ void Panel::paint (juce::Graphics& g)
                                     true, false, true, false);
         g.setColour (GhostSignalLookAndFeel::accent.withAlpha (0.3f));
         g.fillPath (stripe);
+    }
+
+    // ── Title divider ─────────────────────────────────────────────────────────
+    // Section titles are plain white text centred across the panel body — no
+    // filled tab — with a single full-width hairline underneath acting as a
+    // subtle divider. Drawn after the accent stripe so the stroke runs unbroken
+    // across the whole section. Skipped entirely for panels without a title.
+    if (titleText.isNotEmpty())
+    {
+        const auto  titleFont   = title.getFont();
+        const float textHeight  = titleFont.getHeight();
+        const float labelCentre = (float) title.getBounds().getCentreY();
+
+        // Bottom edge of the rendered text block.
+        const float textBottom = labelCentre + textHeight * 0.5f;
+
+        // Centre the stroke in the gap between the text and the bottom of the
+        // title strip, so it reads as a divider beneath the title rather than an
+        // underline hugging the glyphs. Clamped to stay inside the title strip.
+        const float lineY = juce::jmin (textBottom + juce::jmax (0.0f, (titleH - textBottom) * 0.5f),
+                                        titleH - 1.0f);
+
+        // Full width: both ends line up with the panel's inner border.
+        const float inset = 1.5f;
+
+        g.setColour (juce::Colours::white.withAlpha (0.35f));
+        g.fillRect (bounds.getX() + inset, lineY,
+                    bounds.getWidth() - inset * 2.0f, 1.0f);
     }
 
     // ── Top edge highlight ────────────────────────────────────────────────────
@@ -112,13 +122,11 @@ void Panel::paint (juce::Graphics& g)
 
 void Panel::resized()
 {
-    const int titleH  = getTitleAreaHeight();
-    const int titlePadLeft = 10;   // left padding: leaves room for accent stripe
+    const int titleH = getTitleAreaHeight();
 
-    title.setBounds (titlePadLeft,
-                     0,
-                     getWidth() - titlePadLeft - 4,
-                     titleH);
+    // Full-width bounds so the label's centred justification centres the text
+    // within the section, concentric with the full-width title divider.
+    title.setBounds (0, 0, getWidth(), titleH);
 }
 
 int Panel::getTitleAreaHeight() const

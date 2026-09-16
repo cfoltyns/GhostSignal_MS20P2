@@ -4,7 +4,8 @@
  * (c) 2026 Ghost Signal
  *
  * Description: Section panel — recessed dark body with brushed-metal texture,
- *              left accent stripe, proportional title bar.
+ *              left accent stripe, centred white section title over a
+ *              full-width hairline divider.
  */
 
 #pragma once
