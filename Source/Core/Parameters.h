@@ -103,15 +103,16 @@ public:
     // ── LFO rate: MS timed ↔ tempo-synced divisions ─────────────────────────────
     // When the SYNC toggle is OFF the Rate knob is "MS timed": the normalised
     // rate (0..1) maps log-scaled onto a period in milliseconds.
-    // When SYNC is ON the knob snaps to 12 tempo divisions — 1/4, 1/8, 1/16,
-    // 1/32 with straight / triplet (2/3 duration) / dotted (1.5×) variants.
+    // When SYNC is ON the knob snaps to 14 tempo divisions — 1/1, 1/2, 1/4,
+    // 1/8, 1/16, 1/32 with straight / triplet (2/3 duration) / dotted (1.5×) variants.
     inline static constexpr float lfoRateMsMin { 1.0f };       // fastest free period (~1000 Hz)
     inline static constexpr float lfoRateMsMax { 10000.0f };   // slowest free period (0.1 Hz)
 
     // Normalised LFO rate (0..1 in free / ms mode) → free-running period (ms).
+    // Inverted: 0 (CCW) → slowest period, 1 (CW) → fastest period.
     static inline float lfoFreePeriodMs (float normRate)
     {
-        const float t = juce::jlimit (0.0f, 1.0f, normRate);
+        const float t = juce::jlimit (0.0f, 1.0f, 1.0f - normRate);
         return lfoRateMsMin * (float) std::pow (lfoRateMsMax / lfoRateMsMin, (double) t);
     }
 
@@ -128,14 +129,16 @@ public:
         float beats;
     };
 
-    static constexpr int lfoSyncDivisionCount = 12;
+    static constexpr int lfoSyncDivisionCount = 14;
 
-    // Ordered slowest → fastest: 1/4, 1/8, 1/16, 1/32, each with straight,
+    // Ordered slowest → fastest: 1/1, 1/2, 1/4, 1/8, 1/16, 1/32, each with straight,
     // triplet (×2/3) and dotted (×1.5) variants.
     static const inline std::array<LfoSyncDivision, lfoSyncDivisionCount>& lfoSyncDivisions()
     {
         static const std::array<LfoSyncDivision, lfoSyncDivisionCount> d =
         {{
+            { "1/1",   1.0f },
+            { "1/2",   0.5f },
             { "1/4",   0.25f },
             { "1/4T",  0.25f * 2.0f / 3.0f },
             { "1/4.",  0.25f * 1.5f },
@@ -157,7 +160,7 @@ public:
         return lfoSyncDivisions()[juce::jlimit (0, lfoSyncDivisionCount - 1, index)].label;
     }
 
-    // Normalised parameter value (0..1) for a division index (0..11).
+    // Normalised parameter value (0..1) for a division index (0..13).
     static inline float lfoSyncParamValue (int index)
     {
         return (float) juce::jlimit (0, lfoSyncDivisionCount - 1, index) / (float) (lfoSyncDivisionCount - 1);

@@ -72,7 +72,7 @@ private:
     void updateNoiseTypeCenterText();
 
     // Apply the current SYNC toggle state to the given LFO (0..3):
-    //  - sync ON: rate snaps to the 18 tempo divisions (value >= 0.5)
+    //  - sync ON: rate snaps to the 14 tempo divisions (value >= 0.5)
     //  - sync OFF: rate runs free, MS timed (value < 0.5)
     void applyLfoSyncMode (int lfoIndex);
 

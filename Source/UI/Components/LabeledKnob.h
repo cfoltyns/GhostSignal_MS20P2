@@ -14,11 +14,12 @@
 #include <utility>
 
 class LabeledKnob : public juce::Component,
-                     private juce::Slider::Listener
+                     private juce::Slider::Listener,
+                     private juce::Timer
 {
 public:
     LabeledKnob (const juce::String& labelText);
-    ~LabeledKnob() override { slider.removeListener (this); }
+    ~LabeledKnob() override { stopTimer(); slider.removeListener (this); }
 
     juce::Slider& getSlider() { return slider; }
     void setLabel (const juce::String& text);
@@ -69,17 +70,47 @@ public:
     // slider attachment has been created.
     void setCenterValueAsKnobPercent();
 
-    // Animated LFO modulation ring — draws an amber ring around the knob that
-    // shows the actual LFO movement. normValue: -1..1 (bipolar LFO output).
-    // The ring animates around the knob perimeter as the LFO oscillates.
-    void setModulationRing (float normValue, bool show, juce::Colour color = juce::Colour (0xFFD4A04A))
+    // LFO modulation indicator — a single tiny amber LED that travels smoothly
+    // around the rim of the knob, driven by the real modulation signal.
+    //   • travel arc   ∝ modulation depth (normValue already carries LFO × depth,
+    //                    so shallow depth = a small arc, deep depth = a wide sweep)
+    //   • travel speed ∝ LFO rate (the light follows the LFO in time)
+    // There is no continuous ring and no trail: just one small, dim, soft point
+    // of light. normValue: bipolar -1..1 (LFO output × modulation depth).
+    void setModulationRing (float normValue, bool show,
+                            juce::Colour color = juce::Colour (0xFFE8A020))
     {
-        lfoModValue = normValue;
-        showModRing = show;
         modRingColor = color;
-        repaint();
+
+        if (! show)
+        {
+            clearModulationRing();
+            return;
+        }
+
+        ledAngleTarget = modLedAngleFor (normValue);
+
+        if (! showModRing || ! isTimerRunning())
+        {
+            // First appearance: start the light already at its current
+            // position so it never flies in from a stale location.
+            ledAngleCurrent = ledAngleTarget;
+            startTimerHz (60);
+        }
+
+        showModRing = true;
+        modLedOverlay.repaint();
     }
-    void clearModulationRing() { showModRing = false; repaint(); }
+
+    void clearModulationRing()
+    {
+        if (! showModRing)
+            return;
+
+        showModRing = false;
+        stopTimer();
+        modLedOverlay.repaint();
+    }
 
     // Legacy dot indicator (kept for backward compatibility)
     void setModulationIndicator (float normValue, bool show) { setModulationRing(normValue, show); }
@@ -169,10 +200,44 @@ private:
                                 // knob body can't cover the centre text
     bool autoCenterText { false };
 
-    // Animated LFO modulation ring state
-    float lfoModValue { 0.0f };
+    // Animated LFO modulation indicator state
     bool  showModRing { false };
-    juce::Colour modRingColor { juce::Colour (0xFFD4A04A) };
+    juce::Colour modRingColor { juce::Colour (0xFFE8A020) };
+
+    // LED animation: 60 Hz eased travel between the modulation targets the
+    // editor pushes in (currently 30 Hz) keeps the light organic and jitter-free.
+    float ledAngleTarget  { -juce::MathConstants<float>::halfPi };
+    float ledAngleCurrent { -juce::MathConstants<float>::halfPi };
+
+    void timerCallback() override;
+
+    // Map a bipolar modulation value (-1..1 = LFO output × depth) to an angle
+    // around the knob. Zero sits at 12 o'clock; the sweep widens with depth.
+    float modLedAngleFor (float normValue) const;
+
+    // Draw the travelling LED. Called from the overlay so the light paints on
+    // top of the knob flange instead of being hidden behind the slider body.
+    void paintModLed (juce::Graphics& g);
+
+    // Transparent layer sitting above the knob purely so the modulation LED can
+    // be drawn over the flange. Never intercepts mouse clicks.
+    class ModLedOverlay : public juce::Component
+    {
+    public:
+        explicit ModLedOverlay (LabeledKnob& ownerToUse) : owner (ownerToUse)
+        {
+            setInterceptsMouseClicks (false, false);
+        }
+
+        void paint (juce::Graphics& g) override { owner.paintModLed (g); }
+
+    private:
+        LabeledKnob& owner;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ModLedOverlay)
+    };
+
+    ModLedOverlay modLedOverlay { *this };
 
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LabeledKnob)

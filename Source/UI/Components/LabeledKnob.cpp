@@ -23,6 +23,10 @@ LabeledKnob::LabeledKnob (const juce::String& labelText)
     slider.setTextBoxStyle (juce::Slider::NoTextBox, true, 0, 0);
     addAndMakeVisible (slider);
 
+    // Transparent LED layer added straight after the slider so the modulation
+    // light paints above the knob flange (a child added later sits on top).
+    addAndMakeVisible (modLedOverlay);
+
     label.setText (labelText, juce::dontSendNotification);
     label.setJustificationType (juce::Justification::centred);
     label.setColour (juce::Label::textColourId, GhostSignalLookAndFeel::textSecondary);
@@ -204,92 +208,10 @@ void LabeledKnob::paint (juce::Graphics& g)
         g.fillEllipse (cx - ledRadius * 2.0f, cy - ledRadius * 2.0f, ledRadius * 4.0f, ledRadius * 4.0f);
     }
 
-    // Animated LFO modulation ring — a colored ring around the knob showing
-    // the LFO movement. The ring track shows that modulation is routed; the
-    // bright glowing dot sweeps along it with the LFO's current output value.
-    if (showModRing)
-    {
-        const juce::Rectangle<int> sliderBounds = slider.getBounds();
-        const float cx = (float) sliderBounds.getCentreX();
-        const float cy = (float) sliderBounds.getCentreY();
-        // Ring sits just outside the knob body (body ≈ 0.42 * width)
-        const float ringRadius = (float) sliderBounds.getWidth() * 0.47f;
-
-        // Match the rotary arc: 0.75 pi (bottom-left) → 2.25 pi (bottom-right)
-        const float rotaryStart = juce::MathConstants<float>::pi * 0.75f;
-        const float rotaryEnd   = juce::MathConstants<float>::pi * 2.25f;
-
-        // Map the bipolar LFO output (-1..1) onto the full rotary arc so the
-        // dot sweeps bottom-left → top → bottom-right and back as the LFO cycles.
-        const float norm = juce::jlimit (0.0f, 1.0f, (lfoModValue + 1.0f) * 0.5f);
-        const float angle = rotaryStart + norm * (rotaryEnd - rotaryStart);
-
-        // 1. Base ring track — dim full-travel arc showing modulation is routed
-        juce::Path ringTrack;
-        ringTrack.addCentredArc (cx, cy, ringRadius, ringRadius, 0.0f,
-                                 rotaryStart, rotaryEnd, true);
-        // Base ring brightness breathes with the LFO magnitude for extra life
-        const float pulse = 0.18f + 0.12f * std::abs (lfoModValue);
-        g.setColour (modRingColor.withAlpha (pulse));
-        g.strokePath (ringTrack, juce::PathStrokeType (2.0f,
-                                                       juce::PathStrokeType::curved,
-                                                       juce::PathStrokeType::rounded));
-
-        // 2. Trail arc — comet tail fading behind the moving dot
-        {
-            const float trailSpan = 0.6f; // radians of tail behind the dot
-            const float trailStart = angle - trailSpan;
-
-            const int trailSteps = 8;
-            for (int i = 0; i < trailSteps; ++i)
-            {
-                const float t0 = (float) i / (float) trailSteps;
-                const float t1 = (float) (i + 1) / (float) trailSteps;
-
-                juce::Path trailSeg;
-                trailSeg.addCentredArc (cx, cy, ringRadius, ringRadius, 0.0f,
-                                        trailStart + t0 * trailSpan,
-                                        trailStart + t1 * trailSpan, true);
-
-                // Fade from nearly-invisible (oldest) to bright (newest)
-                const float alpha = 0.35f * t1 * t1;
-                g.setColour (modRingColor.withAlpha (alpha));
-                g.strokePath (trailSeg, juce::PathStrokeType (2.2f,
-                                                              juce::PathStrokeType::curved,
-                                                              juce::PathStrokeType::rounded));
-            }
-        }
-
-        // 3. Leading arc — short bright segment ahead of the dot (motion direction)
-        {
-            juce::Path leadSeg;
-            leadSeg.addCentredArc (cx, cy, ringRadius, ringRadius, 0.0f,
-                                   angle, angle + 0.25f, true);
-            g.setColour (modRingColor.withAlpha (0.85f));
-            g.strokePath (leadSeg, juce::PathStrokeType (2.6f,
-                                                         juce::PathStrokeType::curved,
-                                                         juce::PathStrokeType::rounded));
-        }
-
-        // 4. Glowing dot at the current LFO position
-        const float dotX = cx + std::cos (angle) * ringRadius;
-        const float dotY = cy + std::sin (angle) * ringRadius;
-        const float dotR = 3.2f;
-
-        // Outer glow halo
-        g.setColour (modRingColor.withAlpha (0.35f));
-        g.fillEllipse (dotX - dotR * 2.4f, dotY - dotR * 2.4f,
-                       dotR * 4.8f, dotR * 4.8f);
-
-        // Mid glow
-        g.setColour (modRingColor.withAlpha (0.65f));
-        g.fillEllipse (dotX - dotR * 1.5f, dotY - dotR * 1.5f,
-                       dotR * 3.0f, dotR * 3.0f);
-
-        // Bright core
-        g.setColour (modRingColor.brighter (0.35f));
-        g.fillEllipse (dotX - dotR, dotY - dotR, dotR * 2.0f, dotR * 2.0f);
-    }
+    // Subtle travelling LED indicator for LFO modulation — a single tiny amber
+    // light glides around the rim of the knob, driven by the real modulation
+    // signal (see paintModLed). Drawn by the modLedOverlay child so it sits
+    // above the knob body rather than being hidden behind it.
 }
 
 void LabeledKnob::resized()
@@ -309,6 +231,10 @@ void LabeledKnob::resized()
     const int knobY    = (knobAreaH - knobSize) / 2;
 
     slider.setBounds (knobX, knobY, knobSize, knobSize);
+
+    // LED layer covers the whole component (transparent, no mouse) so the
+    // travelling light can use the same coordinates as the slider bounds.
+    modLedOverlay.setBounds (0, 0, totalW, totalH);
 
     // Centre the text overlay over the knob body so division / ms readouts
     // (set via setCenterText) sit in the middle of the knob.
@@ -371,4 +297,81 @@ void LabeledKnob::updateCenterTextFromValue()
         }
         setCenterText (textValues[closestIdx]);
     }
+}
+
+// ─── LFO modulation LED ───────────────────────────────────────────────────────
+//
+// A single tiny amber point of light travels around the rim of the knob, and
+// everything about its motion comes from the real modulation signal:
+//   • depth → how far the light sweeps around the knob
+//   • rate  → how quickly it sweeps
+// There is no ring and no trail — just three soft radial gradients (faint outer
+// halo, tight halo, small core) so the falloff stays smooth at any knob size
+// instead of stepping into visible, pixelated bands.
+
+void LabeledKnob::timerCallback()
+{
+    if (! showModRing)
+        return;
+
+    const float diff = ledAngleTarget - ledAngleCurrent;
+
+    // Eased travel whose easing eases hardest when the distance is large, so
+    // deep modulation still tracks the LFO closely while small corrections
+    // glide — keeping the light organic instead of snapping frame to frame.
+    const float alpha = juce::jlimit (0.16f, 0.50f, std::abs (diff) * 2.4f);
+    ledAngleCurrent += diff * alpha;
+
+    modLedOverlay.repaint();
+}
+
+float LabeledKnob::modLedAngleFor (float normValue) const
+{
+    // 12 o'clock is the rest position; a full-depth LFO sweeps ±108° around it.
+    // Shallow depth therefore produces a small arc, deep depth a wide one.
+    constexpr float maxSweep = juce::MathConstants<float>::pi * 0.6f;
+    const float top = -juce::MathConstants<float>::halfPi;
+    const float v   = juce::jlimit (-1.0f, 1.0f, normValue);
+
+    return top + v * maxSweep;
+}
+
+void LabeledKnob::paintModLed (juce::Graphics& g)
+{
+    if (! showModRing)
+        return;
+
+    const juce::Rectangle<float> knob = slider.getBounds().toFloat();
+
+    if (knob.getWidth() <= 0.0f)
+        return;
+
+    const float cx = knob.getCentreX();
+    const float cy = knob.getCentreY();
+    const float r  = knob.getWidth() * 0.5f;
+
+    // Ride the flange just outside the knob body (body = 0.65r, flange = 0.88r)
+    // so the light reads as a tiny LED embedded in the rim of the knob.
+    const float orbitR = r * 0.80f;
+    const float ledR   = juce::jlimit (1.3f, 2.1f, r * 0.075f);
+
+    const float lx = cx + std::cos (ledAngleCurrent) * orbitR;
+    const float ly = cy + std::sin (ledAngleCurrent) * orbitR;
+
+    // Faint outer halo
+    const float outerR = ledR * 4.2f;
+    g.setGradientFill (juce::ColourGradient (modRingColor.withAlpha (0.10f), lx, ly,
+                                             modRingColor.withAlpha (0.0f), lx + outerR, ly, true));
+    g.fillEllipse (lx - outerR, ly - outerR, outerR * 2.0f, outerR * 2.0f);
+
+    // Tight halo
+    const float midR = ledR * 2.1f;
+    g.setGradientFill (juce::ColourGradient (modRingColor.withAlpha (0.30f), lx, ly,
+                                             modRingColor.withAlpha (0.0f), lx + midR, ly, true));
+    g.fillEllipse (lx - midR, ly - midR, midR * 2.0f, midR * 2.0f);
+
+    // The LED core — small, dim and soft-edged
+    g.setGradientFill (juce::ColourGradient (modRingColor.withAlpha (0.80f), lx, ly,
+                                             modRingColor.withAlpha (0.05f), lx + ledR, ly, true));
+    g.fillEllipse (lx - ledR, ly - ledR, ledR * 2.0f, ledR * 2.0f);
 }

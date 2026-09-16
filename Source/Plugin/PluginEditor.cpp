@@ -1515,7 +1515,7 @@ void PluginEditor::applyLfoSyncMode (int lfoIndex)
     if (syncOn)
     {
         // Enter tempo sync: preserve the knob's current position by mapping it
-        // to the nearest of the 12 divisions across the full 0..1 range.
+        // to the nearest of the 14 divisions across the full 0..1 range.
         const float cur = slider.getValue();
         const int idx = Parameters::lfoSyncIndexForValue (cur);
         const float snapped = Parameters::lfoSyncParamValue (idx);
@@ -1814,20 +1814,21 @@ void PluginEditor::timerCallback()
     syncScope (osc1Scope, Parameters::paramOsc1Waveform, pw1Base, Parameters::paramOsc1Octave, 2.0f);
     syncScope (osc2Scope, Parameters::paramOsc2Waveform, pw2Base, Parameters::paramOsc2Octave, 2.0f);
 
-    // ── LFO modulation rings ────────────────────────────────────────────────────
-    // Every knob/feature an LFO is routed to gets an animated colored ring that
-    // sweeps with the LFO's movement. Destination indices come from
+    // ── LFO modulation LEDs ─────────────────────────────────────────────────────
+    // Every knob/feature an LFO is routed to gets a tiny travelling amber LED
+    // that follows the LFO's movement. Destination indices come from
     // Parameters::lfoDestinationChoices:
     //   0 Off | 1 VCO1 Pitch | 2 VCO2 Pitch | 3 VCO1 PWM | 4 VCO2 PWM
     //   5 VCO1 Tune | 6 VCO2 Tune | 7 VCO1 Level | 8 VCO2 Level
     //   9 Filter Cutoff | 10 Filter Res | 11 HPF Cutoff | 12 HPF Res
     //   13 Amp Gain | 14 Pan
     // Multiple LFOs can target the same destination — their outputs are summed,
-    // and the ring takes the colour of the strongest contributing LFO.
+    // so the LED travel combines them.
     constexpr int numLfoDests = 15;
     float modByDest[numLfoDests] = {};
+    float modDepthByDest[numLfoDests] = {};
 
-    // Warm amber/orange-yellow LED-style color for all LFO modulation rings
+    // Warm amber/orange-yellow LED-style color for all LFO modulation LEDs
     // Consistent vintage analog aesthetic across all routed parameters
     const juce::Colour lfoAmber = juce::Colour (0xFFE8A020);
 
@@ -1837,22 +1838,31 @@ void PluginEditor::timerCallback()
             return;
 
         modByDest[dest] += lfoOut * depth;
+
+        // The routed depth is tracked separately from the signal: the LED has to
+        // stay lit (resting at 12 o'clock) as the LFO sweeps through zero, and
+        // the depth also sets how far the light travels around the knob.
+        modDepthByDest[dest] = juce::jmin (1.0f, modDepthByDest[dest] + depth);
     };
     addMod (d1, lfoOut1, dep1);
     addMod (d2, lfoOut2, dep2);
     addMod (d3, lfoOut3, dep3);
     addMod (d4, lfoOut4, dep4);
 
-    // Drive the animated ring on the knob for each routed destination.
+    // Drive the travelling LED on the knob for each routed destination.
     // Destinations that share a knob (Pitch + Tune) are summed first.
     auto setKnobRing = [&] (LabeledKnob& knob, int destA, int destB = 0)
     {
         float value = modByDest[destA];
+        float depth = modDepthByDest[destA];
 
         if (destB > 0)
+        {
             value += modByDest[destB];
+            depth += modDepthByDest[destB];
+        }
 
-        if (std::abs (value) > 0.001f)
+        if (depth > 0.0f)
             knob.setModulationRing (juce::jlimit (-1.0f, 1.0f, value), true, lfoAmber);
         else
             knob.clearModulationRing();

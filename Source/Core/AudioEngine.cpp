@@ -154,17 +154,17 @@ void AudioEngine::process(juce::AudioBuffer<float> &buffer,
 
     // Combined rate+sync: the SYNC toggle decides the meaning of the rate knob.
     // When sync is OFF the whole 0..1 rate maps to the free-running MS period.
-    // When sync is ON  the whole 0..1 rate maps to the 12 tempo divisions.
+    // When sync is ON  the whole 0..1 rate maps to the 14 tempo divisions.
     const auto resolveLfoRate = [bpm](float normRate, bool sync) -> std::pair<float, bool> {
         if (! sync)
         {
-            // Free-running: MS timed — map 0.0-1.0 to a log-scaled period
-            // (1 ms .. 10 s) and convert to Hz for the DSP.
+            // Free-running: CCW = slow, CW = fast — map 0.0-1.0 to a log-scaled
+            // period (10 s .. 1 ms) and convert to Hz for the DSP.
             return { Parameters::lfoFreeRateHz (normRate), false };
         }
         else
         {
-            // Tempo sync: map 0.0-1.0 to one of the 12 divisions.
+            // Tempo sync: map 0.0-1.0 to one of the 14 divisions.
             const int syncIdx = Parameters::lfoSyncIndexForValue (normRate);
             return { Parameters::lfoSyncDivisionHz (syncIdx, bpm), true };
         }
