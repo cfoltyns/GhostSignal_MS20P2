@@ -70,7 +70,7 @@ private:
     EngineParams params;
 
     double sampleRate { 44100.0 };
-    int maxBlockSize { 512 };
+    int maxBlockSize { 2048 };
     int numChannels { 2 };
 
     // Per-voice drift engines

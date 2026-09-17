@@ -20,7 +20,7 @@ void AudioEngine::prepare(double newSampleRate, int newMaxBlockSize,
   maxBlockSize = newMaxBlockSize;
   numOutputChannels = newNumOutputChannels;
 
-  // Prepare synth engine
+  // Prepare synth engine with maximum buffer size support
   ::dsp::EngineParams ep;
   ep.maxVoices = 32;
   ep.voiceMode = VoiceMode::polyphonic;

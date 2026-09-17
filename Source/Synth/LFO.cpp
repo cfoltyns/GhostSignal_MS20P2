@@ -89,63 +89,124 @@ namespace dsp
         return out;
     }
 
-    void Lfo::process (int numSamples, float phaseOffset)
+    void Lfo::process (int numSamples, float phaseOffset, int64_t transportSamples)
     {
         const float rate = params.rate;
         const double twoPi = juce::MathConstants<double>::twoPi;
-        
-        for (int i = 0; i < numSamples; ++i)
+
+        if (transportSamples >= 0)
         {
-            phase += (float) (rate / params.sampleRate) * (float) twoPi;
-            if (phase > (float) twoPi)
-                phase -= (float) twoPi;
-
-            float out = 0.0f;
-            switch (params.waveform)
+            // Calculate phase directly from DAW transport position for perfect sync
+            for (int i = 0; i < numSamples; ++i)
             {
-                case LfoWaveform::triangle:
-                    out = renderMorph (phase);
-                    break;
-                case LfoWaveform::sine:
-                    out = std::sin (phase);
-                    break;
-                case LfoWaveform::sawUp:
-                    out = 2.0f * (phase / (float) twoPi) - 1.0f;
-                    break;
-                case LfoWaveform::sawDown:
-                    out = 1.0f - 2.0f * (phase / (float) twoPi);
-                    break;
-                case LfoWaveform::square:
-                    out = (phase < juce::MathConstants<float>::pi) ? 1.0f : -1.0f;
-                    break;
-                case LfoWaveform::random:
-                    if (i == 0 || (phase < 0.01f))
-                        out = nextRandom();
-                    else
-                        out = nextRandomValue;
-                    break;
-                case LfoWaveform::sampleHold:
-                    if (i == 0 || (phase < 0.05f))
-                        out = nextRandom();
-                    else
-                        out = nextRandomValue;
-                    break;
-                case LfoWaveform::noise:
-                    out = nextNoise();
-                    break;
-                case LfoWaveform::chaos:
-                    out = nextChaos();
-                    break;
-                default:
-                    out = 0.0f;
-                    break;
+                double phaseDouble = (double) phaseOffset +
+                    (double) i * ((double) rate / (double) params.sampleRate) * (double) twoPi;
+                while (phaseDouble >= (double) twoPi) phaseDouble -= (double) twoPi;
+                while (phaseDouble < 0.0) phaseDouble += (double) twoPi;
+                const float phaseOut = (float) phaseDouble;
+
+                float out = 0.0f;
+                switch (params.waveform)
+                {
+                    case LfoWaveform::triangle:
+                        out = renderMorph (phaseOut);
+                        break;
+                    case LfoWaveform::sine:
+                        out = std::sin (phaseOut);
+                        break;
+                    case LfoWaveform::sawUp:
+                        out = 2.0f * (phaseOut / (float) twoPi) - 1.0f;
+                        break;
+                    case LfoWaveform::sawDown:
+                        out = 1.0f - 2.0f * (phaseOut / (float) twoPi);
+                        break;
+                    case LfoWaveform::square:
+                        out = (phaseOut < juce::MathConstants<float>::pi) ? 1.0f : -1.0f;
+                        break;
+                    case LfoWaveform::random:
+                        if (i == 0 || (phaseOut < 0.01f))
+                            out = nextRandom();
+                        else
+                            out = nextRandomValue;
+                        break;
+                    case LfoWaveform::sampleHold:
+                        if (i == 0 || (phaseOut < 0.05f))
+                            out = nextRandom();
+                        else
+                            out = nextRandomValue;
+                        break;
+                    case LfoWaveform::noise:
+                        out = nextNoise();
+                        break;
+                    case LfoWaveform::chaos:
+                        out = nextChaos();
+                        break;
+                    default:
+                        out = 0.0f;
+                        break;
+                }
+
+                if (params.fade > 0.0f && i < numSamples * params.fade)
+                    out *= (float) i / (numSamples * params.fade);
+
+                currentOutput = out * params.depth;
             }
+        }
+        else
+        {
+            for (int i = 0; i < numSamples; ++i)
+            {
+                double phaseDouble = (double) phase;
+                phaseDouble += (double) rate / (double) params.sampleRate * (double) twoPi;
+                while (phaseDouble > (double) twoPi) phaseDouble -= (double) twoPi;
+                phase = (float) phaseDouble;
 
-            // apply fade in
-            if (params.fade > 0.0f && i < numSamples * params.fade)
-                out *= (float) i / (numSamples * params.fade);
+                float out = 0.0f;
+                switch (params.waveform)
+                {
+                    case LfoWaveform::triangle:
+                        out = renderMorph (phase);
+                        break;
+                    case LfoWaveform::sine:
+                        out = std::sin (phase);
+                        break;
+                    case LfoWaveform::sawUp:
+                        out = 2.0f * (phase / (float) twoPi) - 1.0f;
+                        break;
+                    case LfoWaveform::sawDown:
+                        out = 1.0f - 2.0f * (phase / (float) twoPi);
+                        break;
+                    case LfoWaveform::square:
+                        out = (phase < juce::MathConstants<float>::pi) ? 1.0f : -1.0f;
+                        break;
+                    case LfoWaveform::random:
+                        if (i == 0 || (phase < 0.01f))
+                            out = nextRandom();
+                        else
+                            out = nextRandomValue;
+                        break;
+                    case LfoWaveform::sampleHold:
+                        if (i == 0 || (phase < 0.05f))
+                            out = nextRandom();
+                        else
+                            out = nextRandomValue;
+                        break;
+                    case LfoWaveform::noise:
+                        out = nextNoise();
+                        break;
+                    case LfoWaveform::chaos:
+                        out = nextChaos();
+                        break;
+                    default:
+                        out = 0.0f;
+                        break;
+                }
 
-            currentOutput = out * params.depth;
+                if (params.fade > 0.0f && i < numSamples * params.fade)
+                    out *= (float) i / (numSamples * params.fade);
+
+                currentOutput = out * params.depth;
+            }
         }
     }
 }

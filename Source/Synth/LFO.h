@@ -39,7 +39,8 @@ class Lfo
         void prepare (double sampleRate);
         void reset();
         void setParameters (const LfoParams& p);
-        void process (int numSamples, float phaseOffset = 0.0f);
+        void process (int numSamples, float phaseOffset = 0.0f,
+                      int64_t transportSamples = -1);
 
         float getOutput() const { return currentOutput; }
 

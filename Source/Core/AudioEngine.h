@@ -47,7 +47,7 @@ private:
     void applyMasterGain (juce::AudioBuffer<float>& buffer);
 
     double sampleRate { 44100.0 };
-    int maxBlockSize { 512 };
+    int maxBlockSize { 2048 };
     int numOutputChannels { 2 };
 
     dsp::SynthEngine synthEngine;
