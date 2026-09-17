@@ -86,6 +86,24 @@ public:
                                        float capRadius,
                                        bool enabled);
 
+    // Evenly spaced radial tick marks around the outside of a knob's mounting
+    // flange, spanning the same sweep as the value arc. The ring scales with the
+    // knob, so small knobs get the same marks as large ones, and it sits outside
+    // the flange rim so no mark can touch the value arc, position pointer or
+    // centre readout. Shared by the rotary renderer and the waveform slider.
+    //
+    // innerScale/outerScale are the tick band as a fraction of `radius`, letting
+    // a caller whose value arc sits further out (the waveform knobs) push the
+    // ring toward the rim so the marks still clear the arc.
+    static void drawIndustrialKnobTicks (juce::Graphics& g,
+                                         juce::Point<float> centre,
+                                         float radius,
+                                         int numTicks,
+                                         float startAngle,
+                                         float endAngle,
+                                         float innerScale = 0.925f,
+                                         float outerScale = 0.995f);
+
     // ─── Typography helpers ────────────────────────────────────────────────────
     static float getSectionTitleFontSize (int panelHeight);
     static float getParamLabelFontSize (int widgetHeight);
@@ -95,6 +113,13 @@ public:
     static juce::Font getParamLabelFont (int widgetHeight);
     static juce::Font getValueFont (int widgetHeight);
     static juce::Font getKnobLabelFont (int knobDiameter);
+
+    // ─── Texture helpers ───────────────────────────────────────────────────────
+    // Cached, deterministic grain tile used to give panel bodies a faint
+    // analogue texture. Built once (thread-safe function-local static) and
+    // shared by every panel, so painting stays cheap and the grain never
+    // shimmers between repaints.
+    static const juce::Image& getPanelGrainTile();
 
 private:
     juce::Font knobFont { juce::Font (juce::FontOptions (12.0f, juce::Font::bold)) };

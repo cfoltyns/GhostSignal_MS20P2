@@ -252,6 +252,14 @@ void WaveformKnob::WaveformSlider::paint (juce::Graphics& g)
     // plugin (drop shadow, flange, cylindrical side wall, grip grooves, top).
     GhostSignalLookAndFeel::drawIndustrialKnobBody (g, { cx, cy }, radius, enabled, hovered, dragging);
 
+    // Radial tick marks, same count as every other knob in the plugin. The band
+    // is pushed toward the rim because this knob's value arc sits further out
+    // than the standard rotary's, so the marks still clear the indicator.
+    GhostSignalLookAndFeel::drawIndustrialKnobTicks (g, { cx, cy }, radius, 13,
+                                                     juce::MathConstants<float>::pi * 0.75f,
+                                                     juce::MathConstants<float>::pi * 2.25f,
+                                                     0.950f, 0.995f);
+
     // Rotary value arc just outside the body (matches the LookAndFeel geometry)
     const float rotaryStart = juce::MathConstants<float>::pi * 0.75f;
     const float rotaryEnd   = juce::MathConstants<float>::pi * 2.25f;
@@ -259,7 +267,8 @@ void WaveformKnob::WaveformSlider::paint (juce::Graphics& g)
 
     if (enabled && (float) getValue() > 0.001f)
     {
-        const float arcR = radius * 0.93f;
+        // Kept just outside the flange rim, but inside the tick ring.
+        const float arcR = radius * 0.89f;
         juce::Path arc;
         arc.addCentredArc (cx, cy, arcR, arcR, 0.0f, rotaryStart, sliderAngle, true);
         g.setColour (dragging ? GhostSignalLookAndFeel::accent.brighter (0.22f)

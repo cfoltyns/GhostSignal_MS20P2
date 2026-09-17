@@ -158,6 +158,54 @@ void GhostSignalLookAndFeel::drawIndustrialKnobBody (Graphics& g,
         g.strokePath (topHighlight, PathStrokeType (1.0f, PathStrokeType::curved, PathStrokeType::rounded));
     }
 
+    // ── Soft bevel, inner shadow and mild specular highlight ──────────────────
+    // Bevel where the top surface rolls into the side wall, an inner shadow
+    // around the lower rim of that surface, and a soft specular blob toward the
+    // upper-left light source. Black/white alpha only, so the palette is
+    // unchanged; `hovered`/`dragging` lift the highlights very slightly.
+    const float lift = dragging ? 0.06f : (hovered ? 0.03f : 0.0f);
+
+    {
+        const float bevelR = topR + (bodyR - topR) * 0.45f;
+
+        // Upper bevel catches the light …
+        Path bevelLight;
+        bevelLight.addCentredArc (cx, cy, bevelR, bevelR, 0.0f,
+                                  0.82f * MathConstants<float>::pi,
+                                  1.68f * MathConstants<float>::pi, true);
+        g.setColour (Colours::white.withAlpha (0.10f + lift));
+        g.strokePath (bevelLight, PathStrokeType (1.2f, PathStrokeType::curved, PathStrokeType::rounded));
+
+        // … lower bevel falls away into shadow
+        Path bevelDark;
+        bevelDark.addCentredArc (cx, cy, bevelR, bevelR, 0.0f,
+                                 -0.18f * MathConstants<float>::pi,
+                                  0.18f * MathConstants<float>::pi, true);
+        g.setColour (Colour (0x3A000000));
+        g.strokePath (bevelDark, PathStrokeType (1.8f, PathStrokeType::curved, PathStrokeType::rounded));
+    }
+
+    {
+        // Inner shadow: the top surface curves away from the light toward its
+        // lower-right rim, so that side sinks into the body.
+        Path innerShadow;
+        innerShadow.addCentredArc (cx, cy, topR * 0.93f, topR * 0.93f, 0.0f,
+                                   0.10f * MathConstants<float>::pi,
+                                   0.90f * MathConstants<float>::pi, true);
+        g.setColour (Colour (0x34000000));
+        g.strokePath (innerShadow, PathStrokeType (1.8f, PathStrokeType::curved, PathStrokeType::rounded));
+
+        // Mild specular highlight, offset toward the upper-left light source.
+        const float specR = topR * 0.60f;
+        const float specX = cx - topR * 0.32f;
+        const float specY = cy - topR * 0.28f;
+
+        ColourGradient spec (Colours::white.withAlpha (0.10f + lift * 0.9f), specX, specY,
+                             Colours::white.withAlpha (0.0f), specX + specR, specY + specR, true);
+        g.setGradientFill (spec);
+        g.fillEllipse (specX - specR, specY - specR, specR * 2.0f, specR * 2.0f);
+    }
+
     {
         g.setColour (Colour (0x30000000));
         g.drawEllipse (cx - bodyR + 0.5f, cy - bodyR + 0.5f,
@@ -175,6 +223,12 @@ void GhostSignalLookAndFeel::drawIndustrialKnobBody (Graphics& g,
         g.setGradientFill (vignetteGrad);
         g.fillEllipse (cx - flangeR, cy - flangeR, flangeR * 2.0f, flangeR * 2.0f);
     }
+
+    // NOTE: radial tick marks are NOT drawn here. They live in the shared
+    // drawIndustrialKnobTicks() helper, which each rotary renderer calls with the
+    // angles of its own value arc. Drawing a second ring from inside the body
+    // would double up on the same annulus (25 marks instead of 13) and fight the
+    // arc sweep, so the body stays purely "hardware".
 
     if (! enabled)
     {
@@ -220,6 +274,50 @@ void GhostSignalLookAndFeel::drawIndustrialKnobCap (Graphics& g,
     {
         g.setColour (Colour (0x40000000));
         g.fillEllipse (cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
+    }
+}
+
+// ─── Industrial knob tick marks (shared) ─────────────────────────────────────
+// Evenly spaced radial marks around the outside of the mounting flange, spanning
+// the same sweep as the value arc. They sit clear of the flange rim so no tick
+// can touch the value arc, the position pointer or the centre readout, and the
+// ring scales with the knob so small knobs get the same marks as large ones.
+
+void GhostSignalLookAndFeel::drawIndustrialKnobTicks (Graphics& g,
+                                                      Point<float> centre,
+                                                      float radius,
+                                                      int numTicks,
+                                                      float startAngle,
+                                                      float endAngle,
+                                                      float innerScale,
+                                                      float outerScale)
+{
+    numTicks = jlimit (11, 13, numTicks);
+
+    if (numTicks < 2 || radius <= 0.0f)
+        return;
+
+    const float cx = centre.x;
+    const float cy = centre.y;
+
+    // Just outside the flange (knobFlangeScale = 0.88 of the radius) and just
+    // inside the component edge, so the thin marks stay fully on-screen.
+    const float innerR = radius * innerScale;
+    const float outerR = radius * outerScale;
+
+    // Thin and light against the dark knob and panel: readable, never shouty.
+    g.setColour (textSecondary.withAlpha (0.55f));
+
+    for (int i = 0; i < numTicks; ++i)
+    {
+        const float t     = (float) i / (float) (numTicks - 1);
+        const float angle = startAngle + t * (endAngle - startAngle);
+        const float sn    = std::sin (angle);
+        const float cs    = std::cos (angle);
+
+        g.drawLine (cx + cs * innerR, cy + sn * innerR,
+                    cx + cs * outerR, cy + sn * outerR,
+                    1.0f);
     }
 }
 
@@ -301,6 +399,45 @@ juce::Font GhostSignalLookAndFeel::getValueFont (int widgetHeight)
 juce::Font GhostSignalLookAndFeel::getKnobLabelFont (int knobDiameter)
 {
     return Font (FontOptions (getKnobFontSize (knobDiameter), Font::bold));
+}
+
+// ─── Panel grain tile ─────────────────────────────────────────────────────────
+// A 128 x 128 ARGB tile of very low-alpha speckle: half the pixels are a touch
+// darker than the panel colour, half a touch lighter. Drawn once and tiled by
+// Panel::paint, it gives the flat panel body a faint analogue grain without any
+// perceptible tiling seams at these alphas.
+// A fixed seed keeps the pattern identical across runs and repaints.
+
+const juce::Image& GhostSignalLookAndFeel::getPanelGrainTile()
+{
+    static const Image grain = []
+    {
+        constexpr int tileSize = 128;
+        constexpr float darkGrain  = 0.085f;   // peak alpha of the darker speckle
+        constexpr float lightGrain = 0.050f;   // peak alpha of the lighter speckle
+
+        Image tile (Image::ARGB, tileSize, tileSize, true);
+
+        Random rng (0x6c6f7767);   // fixed seed — deterministic grain
+
+        for (int y = 0; y < tileSize; ++y)
+        {
+            for (int x = 0; x < tileSize; ++x)
+            {
+                const float n = rng.nextFloat();
+
+                const Colour speck = (n < 0.5f)
+                    ? Colours::black.withAlpha (n * 2.0f * darkGrain)
+                    : Colours::white.withAlpha ((n - 0.5f) * 2.0f * lightGrain);
+
+                tile.setPixelAt (x, y, speck);
+            }
+        }
+
+        return tile;
+    }();
+
+    return grain;
 }
 
 // ─── Rotary slider rendering ──────────────────────────────────────────────────
@@ -419,6 +556,11 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
 
     // ── Industrial knob body (flange, side wall, grip grooves, top) ───────────
     drawIndustrialKnobBody (g, { cx, cy }, r, enabled, hovered, dragging);
+
+    // ── Radial tick marks around the outside of the flange ────────────────────
+    // 13 marks spanning the same sweep as the value arc, drawn after the body so
+    // they sit crisply on top of its drop shadow.
+    drawIndustrialKnobTicks (g, { cx, cy }, r, 13, rotaryStartAngle, rotaryEndAngle);
 
     const float bodyR = r * knobBodyScale;
     const float capR  = r * knobCapScale;

@@ -36,20 +36,98 @@ void Panel::paint (juce::Graphics& g)
     const float corner   = 6.0f;
     const float titleH   = static_cast<float> (getTitleAreaHeight());
     const float accentW  = 3.0f;  // left stripe width
+    const float grainOpacity = 0.55f;  // analogue speckle strength (0 = off)
 
-    // ── Outer shadow (drop shadow for depth) ────────────────────────────────────
+    // ── Soft ambient drop shadow ──────────────────────────────────────────────
+    // The section sits on the editor background under a soft, offset ambient
+    // shadow rather than a hard edge. Several progressively larger and fainter
+    // rounded rectangles, painted back-to-front, give a smooth falloff. Black
+    // alpha only, so the palette is untouched.
     {
-        g.setColour (GhostSignalLookAndFeel::panelShadow);
-        g.fillRoundedRectangle (bounds.getX() + 1.0f, bounds.getY() + 2.0f,
-                                bounds.getWidth(), bounds.getHeight(), corner);
+        constexpr int shadowLayers = 5;
+
+        for (int i = shadowLayers; i >= 1; --i)
+        {
+            const float spread = static_cast<float> (i);
+            const float alpha  = 0.13f / static_cast<float> (i);
+
+            g.setColour (juce::Colours::black.withAlpha (alpha));
+            g.fillRoundedRectangle (bounds.getX() + 1.0f - spread * 0.5f,
+                                    bounds.getY() + 2.0f + spread * 0.5f,
+                                    bounds.getWidth() + spread,
+                                    bounds.getHeight() + spread,
+                                    corner + spread * 0.5f);
+        }
     }
 
     // ── Body background ───────────────────────────────────────────────────────
-    // Flat, uniform grey — deliberately no gradient, scan lines, stripes, noise
-    // or any other texture, so each section reads as a clean solid panel.
+    // Gentle top-to-bottom gradient across the section body: marginally lighter
+    // at the top where the panel meets the chassis, sinking darker toward the
+    // base. Subtle enough to be felt rather than seen, but it stops large dark
+    // areas reading as one dead flat block.
     {
-        g.setColour (GhostSignalLookAndFeel::panel);
+        juce::ColourGradient bodyGrad (GhostSignalLookAndFeel::panel.brighter (0.045f),
+                                       bounds.getX(),
+                                       bounds.getY(),
+                                       GhostSignalLookAndFeel::panel.darker (0.055f),
+                                       bounds.getX(),
+                                       bounds.getBottom(),
+                                       false);
+        g.setGradientFill (bodyGrad);
         g.fillRoundedRectangle (bounds, corner);
+    }
+
+    // ── Analogue grain ────────────────────────────────────────────────────────
+    // A cached, deterministic speckle tile at very low alpha, clipped to the
+    // rounded body so it never bleeds past the panel edge. Gives the surface a
+    // faint physical tooth without adding visible patterning.
+    {
+        g.saveState();
+
+        juce::Path bodyClip;
+        bodyClip.addRoundedRectangle (bounds, corner);
+        g.reduceClipRegion (bodyClip, {});
+
+        g.setTiledImageFill (GhostSignalLookAndFeel::getPanelGrainTile(), 0, 0, grainOpacity);
+        g.fillAll();
+
+        g.restoreState();
+    }
+
+    // ── Corner ambient occlusion ──────────────────────────────────────────────
+    // Darken the top-left and bottom-right interior so each section reads as a
+    // well recessed into the chassis rather than a flat card floating on top.
+    // Drawn under the accent stripe and title so foreground detail stays crisp.
+    {
+        g.saveState();
+
+        juce::Path bodyClip;
+        bodyClip.addRoundedRectangle (bounds, corner);
+        g.reduceClipRegion (bodyClip, {});
+
+        const float aoR = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.42f;
+
+        {
+            juce::ColourGradient ao (juce::Colours::black.withAlpha (0.22f),
+                                     bounds.getX(), bounds.getY(),
+                                     juce::Colours::transparentBlack,
+                                     bounds.getX() + aoR, bounds.getY() + aoR,
+                                     true);
+            g.setGradientFill (ao);
+            g.fillRect (bounds);
+        }
+
+        {
+            juce::ColourGradient ao (juce::Colours::black.withAlpha (0.18f),
+                                     bounds.getRight(), bounds.getBottom(),
+                                     juce::Colours::transparentBlack,
+                                     bounds.getRight() - aoR, bounds.getBottom() - aoR,
+                                     true);
+            g.setGradientFill (ao);
+            g.fillRect (bounds);
+        }
+
+        g.restoreState();
     }
 
     // ── Left accent stripe ────────────────────────────────────────────────────
