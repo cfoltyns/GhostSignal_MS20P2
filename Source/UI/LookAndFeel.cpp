@@ -224,6 +224,59 @@ void GhostSignalLookAndFeel::drawIndustrialKnobBody (Graphics& g,
         g.fillEllipse (cx - flangeR, cy - flangeR, flangeR * 2.0f, flangeR * 2.0f);
     }
 
+    // ── Contact ambient occlusion ──────────────────────────────────────────────
+    // Soft darkening on the panel right where the knob meets it, so the knob
+    // sits ON the surface instead of being pasted onto it. Transparent over
+    // the whole face; the falloff peaks just outside the flange rim.
+    {
+        ColourGradient ao (Colour (0x00000000), cx, cy,
+                           Colour (0x00000000), cx + flangeR * 1.30f, cy, true);
+        ao.addColour (0.62f, Colour (0x00000000));
+        ao.addColour (0.80f, Colour (0x2C000000));
+        ao.addColour (1.00f, Colour (0x00000000));
+        g.setGradientFill (ao);
+        g.fillEllipse (cx - flangeR * 1.30f, cy - flangeR * 1.30f,
+                       flangeR * 2.60f, flangeR * 2.60f);
+    }
+
+    // ── Raised rim bevel (outer edge of the flange) ────────────────────────────
+    // A clear chamfered rim: thin catchlight along its top-left arc, darker
+    // roll-off along the bottom, so the edge reads as machined hardware
+    // rather than a flat disc.
+    {
+        Path rimLight;
+        rimLight.addCentredArc (cx, cy, flangeR - 0.8f, flangeR - 0.8f, 0.0f,
+                                0.80f * MathConstants<float>::pi,
+                                1.70f * MathConstants<float>::pi, true);
+        g.setColour (Colours::white.withAlpha (0.13f + lift * 0.8f));
+        g.strokePath (rimLight, PathStrokeType (1.1f, PathStrokeType::curved, PathStrokeType::rounded));
+
+        Path rimDark;
+        rimDark.addCentredArc (cx, cy, flangeR - 0.8f, flangeR - 0.8f, 0.0f,
+                               -0.20f * MathConstants<float>::pi,
+                                0.20f * MathConstants<float>::pi, true);
+        g.setColour (Colour (0x40000000));
+        g.strokePath (rimDark, PathStrokeType (1.4f, PathStrokeType::curved, PathStrokeType::rounded));
+    }
+
+    // ── Fine surface grain (matte soft-touch plastic) ──────────────────────────
+    // Very low-contrast speckle over the top face — the same deterministic tile
+    // the panels use, so the material language stays consistent everywhere and
+    // the grain never shimmers between repaints.
+    {
+        const Image& grain = getPanelGrainTile();
+        if (grain.isValid())
+        {
+            g.saveState();
+            Path faceClip;
+            faceClip.addEllipse (cx - topR, cy - topR, topR * 2.0f, topR * 2.0f);
+            g.reduceClipRegion (faceClip);
+            g.setTiledImageFill (grain, 0, 0, 0.22f);
+            g.fillAll();
+            g.restoreState();
+        }
+    }
+
     // NOTE: radial tick marks are NOT drawn here. They live in the shared
     // drawIndustrialKnobTicks() helper, which each rotary renderer calls with the
     // angles of its own value arc. Drawing a second ring from inside the body
@@ -305,8 +358,11 @@ void GhostSignalLookAndFeel::drawIndustrialKnobTicks (Graphics& g,
     const float innerR = radius * innerScale;
     const float outerR = radius * outerScale;
 
-    // Thin and light against the dark knob and panel: readable, never shouty.
-    g.setColour (textSecondary.withAlpha (0.55f));
+    // Molded / silkscreened scale marks: each tick gets a soft contact shadow
+    // offset away from the top-left light, then a main line whose thickness
+    // scales with the knob and whose brightness varies — the end stops and the
+    // centre detente read slightly stronger, like printed reference marks.
+    const float tickW = jlimit (1.2f, 2.2f, radius * 0.020f);
 
     for (int i = 0; i < numTicks; ++i)
     {
@@ -315,9 +371,27 @@ void GhostSignalLookAndFeel::drawIndustrialKnobTicks (Graphics& g,
         const float sn    = std::sin (angle);
         const float cs    = std::cos (angle);
 
-        g.drawLine (cx + cs * innerR, cy + sn * innerR,
-                    cx + cs * outerR, cy + sn * outerR,
-                    1.0f);
+        const float x1 = cx + cs * innerR;
+        const float y1 = cy + sn * innerR;
+        const float x2 = cx + cs * outerR;
+        const float y2 = cy + sn * outerR;
+
+        // Contact shadow — offset down-right, away from the light.
+        g.setColour (Colour (0x50000000));
+        g.drawLine (x1 + 0.75f, y1 + 1.0f, x2 + 0.75f, y2 + 1.0f, tickW);
+
+        const bool isKeyMark = (i == 0 || i == numTicks - 1 || i == numTicks / 2);
+        const float alpha    = isKeyMark ? 0.78f : 0.50f;
+
+        g.setColour (textSecondary.withAlpha (alpha));
+        g.drawLine (x1, y1, x2, y2, tickW);
+
+        // Hairline catchlight on the key marks, as if inked proud of the panel.
+        if (isKeyMark)
+        {
+            g.setColour (Colours::white.withAlpha (0.16f));
+            g.drawLine (x1, y1 - tickW * 0.35f, x2, y2 - tickW * 0.35f, 0.8f);
+        }
     }
 }
 
@@ -565,32 +639,53 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
     const float bodyR = r * knobBodyScale;
     const float capR  = r * knobCapScale;
 
-    // ── Position indicator — pointer line on the top surface ───────────────────
-    // Rotates with the value so every knob's position is readable without
-    // reading the numeric centre display.
+    // ── Position indicator — molded ridge on the top surface ───────────────────
+    // A substantial physical pointer rather than a drawn line: a recessed
+    // channel shadow, a cream painted ridge body, a catchlight along its lit
+    // edge, and a small dome tip that catches the light. Rotates with the
+    // value so every knob's position is readable without the numeric display.
     if (enabled)
     {
         const float indStart = capR + r * 0.05f;
         const float indEnd   = bodyR * 0.92f;
-        const float indW     = jlimit (1.5f, 2.5f, r * 0.045f);
+        const float indW     = jlimit (2.5f, 4.5f, r * 0.062f);
 
         const float sinA = std::sin (toAngle);
         const float cosA = std::cos (toAngle);
         const Line<float> pointer (cx + cosA * indStart, cy + sinA * indStart,
                                    cx + cosA * indEnd,   cy + sinA * indEnd);
 
-        // Subtle shadow under pointer
-        g.setColour (Colour (0x40000000));
-        g.drawLine (pointer, indW + 1.5f);
+        const float px1 = pointer.getStartX(), py1 = pointer.getStartY();
+        const float px2 = pointer.getEndX(),   py2 = pointer.getEndY();
 
-        // Main pointer line — off-white
-        g.setColour (dragging ? Colour (0xFFF0F0F0)
-                              : textPrimary.withAlpha (hovered ? 0.95f : 0.85f));
+        // Recessed channel — soft shadow offset away from the light source.
+        g.setColour (Colour (0x5E000000));
+        g.drawLine (px1 + 0.8f, py1 + 1.1f, px2 + 0.8f, py2 + 1.1f, indW + 1.2f);
+
+        // Ridge body — soft cream paint, slightly warm against the dark body.
+        g.setColour (dragging ? Colour (0xFFF2EDE0)
+                              : Colour (0xFFD9D2C2).withAlpha (hovered ? 0.97f : 0.92f));
         g.drawLine (pointer, indW);
 
-        const float tipR = indW * 0.5f;
-        g.fillEllipse (cx + cosA * indEnd - tipR, cy + sinA * indEnd - tipR,
-                       tipR * 2.0f, tipR * 2.0f);
+        // Catchlight along the ridge's lit (upper) edge.
+        g.setColour (Colours::white.withAlpha (dragging ? 0.55f : 0.38f));
+        g.drawLine (px1, py1 - indW * 0.30f, px2, py2 - indW * 0.30f,
+                    jmax (0.8f, indW * 0.30f));
+
+        // Dome tip — small rounded cap with its own shadow and catchlight.
+        const float tipR = indW * 0.80f;
+        const float tipX = cx + cosA * indEnd;
+        const float tipY = cy + sinA * indEnd;
+
+        g.setColour (Colour (0x50000000));
+        g.fillEllipse (tipX - tipR + 0.8f, tipY - tipR + 1.1f, tipR * 2.0f, tipR * 2.0f);
+
+        g.setColour (dragging ? Colour (0xFFF6F1E4) : Colour (0xFFE2DBC9));
+        g.fillEllipse (tipX - tipR, tipY - tipR, tipR * 2.0f, tipR * 2.0f);
+
+        g.setColour (Colours::white.withAlpha (0.45f));
+        g.fillEllipse (tipX - tipR * 0.55f, tipY - tipR * 0.70f,
+                       tipR * 0.90f, tipR * 0.70f);
     }
 
     // ── Industrial centre cap ──────────────────────────────────────────────────
@@ -619,13 +714,20 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
                 g.setFont (Font (FontOptions (fontSize, Font::bold)));
             }
 
-            // The text area is wider than the cap itself so 3-digit values
-            // aren't clipped; the text may overhang slightly onto the knob body.
-            g.drawFittedText (centreText,
-                              Rectangle<int> (roundToInt (cx - maxTextW * 0.5f),
-                                              roundToInt (cy - capR),
-                                              roundToInt (maxTextW),
-                                              roundToInt (capR * 2.0f)),
+            // Printed into the flat top face: a soft dark pass offset away from
+            // the light gives the digits a recessed, silkscreened feel while
+            // staying perfectly legible.
+            const auto textArea = Rectangle<int> (roundToInt (cx - maxTextW * 0.5f),
+                                                  roundToInt (cy - capR),
+                                                  roundToInt (maxTextW),
+                                                  roundToInt (capR * 2.0f));
+
+            g.setColour (Colour (0x8C000000));
+            g.drawFittedText (centreText, textArea.translated (1, 1),
+                              Justification::centred, 1, 0.7f);
+
+            g.setColour (Colour (0xFFF2EDE0));
+            g.drawFittedText (centreText, textArea,
                               Justification::centred, 1, 0.7f);
         }
     }
