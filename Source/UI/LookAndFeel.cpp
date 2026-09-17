@@ -64,13 +64,16 @@ void GhostSignalLookAndFeel::drawIndustrialKnobBody (Graphics& g,
     // Subtle brightness boost when dragging for visual feedback
     const float dragBoost = dragging ? 0.08f : 0.0f;
 
-    const Colour colTopSurf    = Colour (0xFF111617).brighter (dragBoost);
-    const Colour colTopHigh    = Colour (0xFF1B2223).brighter (dragBoost);
-    const Colour colSideMid    = Colour (0xFF171D1E).brighter (dragBoost);
-    const Colour colSideShadow = Colour (0xFF080C0D).brighter (dragBoost);
-    const Colour colDeepShadow = Colour (0xFF050707).brighter (dragBoost);
-    const Colour colFlangeTop  = Colour (0xFF1A1A1C).brighter (dragBoost);
-    const Colour colFlangeBot  = Colour (0xFF08080A).brighter (dragBoost);
+    // Black brushed-metal palette — neutral gunmetal, no colour tint. The top
+    // face is anodized grey that catches a top-left key light; the side wall
+    // and flange fall nearly black for weight and solidity.
+    const Colour colTopSurf    = Colour (0xFF191B1E).brighter (dragBoost);
+    const Colour colTopHigh    = Colour (0xFF26292E).brighter (dragBoost);
+    const Colour colSideMid    = Colour (0xFF141519).brighter (dragBoost);
+    const Colour colSideShadow = Colour (0xFF07080A).brighter (dragBoost);
+    const Colour colDeepShadow = Colour (0xFF040506).brighter (dragBoost);
+    const Colour colFlangeTop  = Colour (0xFF1A1C1F).brighter (dragBoost);
+    const Colour colFlangeBot  = Colour (0xFF0A0B0D).brighter (dragBoost);
 
     for (int i = 0; i < 4; ++i)
     {
@@ -120,33 +123,10 @@ void GhostSignalLookAndFeel::drawIndustrialKnobBody (Graphics& g,
     }
 
     {
-        constexpr int numGrooves = 7;
-        const float grooveTopY    = cy - bodyR * 0.25f;
-        const float grooveBottomY = cy + bodyR * 0.65f;
-        const float grooveSpanX   = bodyR * 1.4f;
-        const float grooveStartX  = cx - bodyR * 0.7f;
-
-        for (int i = 0; i < numGrooves; ++i)
-        {
-            const float t = (i + 0.5f) / numGrooves;
-            const float gx = grooveStartX + t * grooveSpanX;
-
-            // Dark groove line
-            const uint8 grooveAlpha = static_cast<uint8>(0x35 + (i % 3) * 0x08);
-            g.setColour (Colour (static_cast<uint32> (grooveAlpha) << 24));
-            g.drawVerticalLine (static_cast<int> (gx), grooveTopY, grooveBottomY);
-
-            // Subtle highlight to the left of the groove
-            g.setColour (Colour (0x10FFFFFF));
-            g.drawVerticalLine (static_cast<int> (gx) - 1, grooveTopY, grooveBottomY);
-        }
-    }
-
-    {
         ColourGradient topGrad (colTopHigh, cx - topR * 0.4f, cy - topR * 0.5f,
                                 colTopSurf, cx + topR * 0.3f, cy + topR * 0.5f,
                                 true);
-        topGrad.addColour (0.6f, Colour (0xFF151B1C));
+        topGrad.addColour (0.6f, Colour (0xFF1C1E22));
         g.setGradientFill (topGrad);
         g.fillEllipse (cx - topR, cy - topR, topR * 2.0f, topR * 2.0f);
 
@@ -156,6 +136,36 @@ void GhostSignalLookAndFeel::drawIndustrialKnobBody (Graphics& g,
                                     1.55f * MathConstants<float>::pi, true);
         g.setColour (Colour (hovered ? 0x30FFFFFF : 0x1CFFFFFF));
         g.strokePath (topHighlight, PathStrokeType (1.0f, PathStrokeType::curved, PathStrokeType::rounded));
+    }
+
+    // ── Brushed-metal grain (horizontal machine marks) ──────────────────────────
+    // Fine horizontal strokes across the whole body, like shavings on anodized
+    // aluminum. Brightness varies deterministically per line (index hash, no
+    // randomness) so the texture never shimmers between repaints.
+    {
+        g.saveState();
+        Path grainClip;
+        grainClip.addEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+        g.reduceClipRegion (grainClip);
+
+        const float lineSpacing = jmax (1.0f, bodyR * 0.055f);
+        const int   numLines    = (int) (bodyR * 2.0f / lineSpacing) + 2;
+
+        for (int i = 0; i < numLines; ++i)
+        {
+            const float ly  = cy - bodyR + (float) i * lineSpacing;
+            const float hsh = std::fmod (std::sin ((float) i * 12.9898f) * 43758.5453f, 1.0f);
+            const float n   = hsh < 0.0f ? hsh + 1.0f : hsh;
+
+            if (n > 0.80f)   // occasional bright shavings that catch the light
+                g.setColour (Colours::white.withAlpha (0.05f + (n - 0.80f) * 0.50f));
+            else             // dark machining marks
+                g.setColour (Colours::black.withAlpha (0.08f + n * 0.10f));
+
+            g.drawHorizontalLine ((int) ly, cx - bodyR, cx + bodyR);
+        }
+
+        g.restoreState();
     }
 
     // ── Soft bevel, inner shadow and mild specular highlight ──────────────────
@@ -195,7 +205,16 @@ void GhostSignalLookAndFeel::drawIndustrialKnobBody (Graphics& g,
         g.setColour (Colour (0x34000000));
         g.strokePath (innerShadow, PathStrokeType (1.8f, PathStrokeType::curved, PathStrokeType::rounded));
 
-        // Mild specular highlight, offset toward the upper-left light source.
+        // Soft secondary bounce — faint light returning from the panel onto the
+        // lower-right side of the face, lifting it out of pure shadow.
+        Path bounce;
+        bounce.addCentredArc (cx, cy, topR * 0.80f, topR * 0.80f, 0.0f,
+                              -0.05f * MathConstants<float>::pi,
+                               0.35f * MathConstants<float>::pi, true);
+        g.setColour (Colours::white.withAlpha (0.07f));
+        g.strokePath (bounce, PathStrokeType (1.2f, PathStrokeType::curved, PathStrokeType::rounded));
+
+        // Specular highlight, offset toward the upper-left light source.
         const float specR = topR * 0.60f;
         const float specX = cx - topR * 0.32f;
         const float specY = cy - topR * 0.28f;
@@ -204,6 +223,12 @@ void GhostSignalLookAndFeel::drawIndustrialKnobBody (Graphics& g,
                              Colours::white.withAlpha (0.0f), specX + specR, specY + specR, true);
         g.setGradientFill (spec);
         g.fillEllipse (specX - specR, specY - specR, specR * 2.0f, specR * 2.0f);
+
+        // Tight core glint on top of the soft blob — a hard machined catchlight
+        // aligned with the brushed grain (horizontal), as metal reflects.
+        g.setColour (Colours::white.withAlpha (0.15f + lift * 1.1f));
+        g.fillEllipse (specX - specR * 0.48f, specY - specR * 0.16f,
+                       specR * 0.96f, specR * 0.32f);
     }
 
     {
@@ -214,6 +239,12 @@ void GhostSignalLookAndFeel::drawIndustrialKnobBody (Graphics& g,
         g.setColour (Colour (0x20000000));
         g.drawEllipse (cx - topR + 0.5f, cy - topR + 0.5f,
                        topR * 2.0f - 1.0f, topR * 2.0f - 1.0f, 1.0f);
+
+        // Machined edge — bright chamfer ring where the domed face meets the
+        // bevel, reading as turned metal rather than a soft plastic roll.
+        g.setColour (Colours::white.withAlpha (0.10f));
+        g.drawEllipse (cx - topR + 1.5f, cy - topR + 1.5f,
+                       topR * 2.0f - 3.0f, topR * 2.0f - 3.0f, 1.0f);
     }
 
     {
@@ -259,10 +290,11 @@ void GhostSignalLookAndFeel::drawIndustrialKnobBody (Graphics& g,
         g.strokePath (rimDark, PathStrokeType (1.4f, PathStrokeType::curved, PathStrokeType::rounded));
     }
 
-    // ── Fine surface grain (matte soft-touch plastic) ──────────────────────────
-    // Very low-contrast speckle over the top face — the same deterministic tile
-    // the panels use, so the material language stays consistent everywhere and
-    // the grain never shimmers between repaints.
+    // ── Fine anodized micro-texture ────────────────────────────────────────────
+    // A very low-contrast speckle over the top face on top of the horizontal
+    // brush marks — the same deterministic tile the panels use, so the material
+    // language stays consistent everywhere and the grain never shimmers between
+    // repaints. Kept faint so the brushed strokes remain the dominant texture.
     {
         const Image& grain = getPanelGrainTile();
         if (grain.isValid())
@@ -271,7 +303,7 @@ void GhostSignalLookAndFeel::drawIndustrialKnobBody (Graphics& g,
             Path faceClip;
             faceClip.addEllipse (cx - topR, cy - topR, topR * 2.0f, topR * 2.0f);
             g.reduceClipRegion (faceClip);
-            g.setTiledImageFill (grain, 0, 0, 0.22f);
+            g.setTiledImageFill (grain, 0, 0, 0.12f);
             g.fillAll();
             g.restoreState();
         }
@@ -304,8 +336,8 @@ void GhostSignalLookAndFeel::drawIndustrialKnobCap (Graphics& g,
     const float capR = capRadius;
 
     // Small dark circular recess in the center
-    ColourGradient capGrad (Colour (0xFF0E1213), cx - capR * 0.3f, cy - capR * 0.4f,
-                            Colour (0xFF080A0B), cx + capR * 0.3f, cy + capR * 0.4f,
+    ColourGradient capGrad (Colour (0xFF101114), cx - capR * 0.3f, cy - capR * 0.4f,
+                            Colour (0xFF070809), cx + capR * 0.3f, cy + capR * 0.4f,
                             true);
     g.setGradientFill (capGrad);
     g.fillEllipse (cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
@@ -376,22 +408,24 @@ void GhostSignalLookAndFeel::drawIndustrialKnobTicks (Graphics& g,
         const float x2 = cx + cs * outerR;
         const float y2 = cy + sn * outerR;
 
+        // Engraved scale marks: a dark cut into the metal with a faint lit core
+        // just above the groove face, so each mark has depth rather than looking
+        // like flat ink. End stops and the centre detente read slightly deeper,
+        // like reference marks on hardware.
+        const bool isKeyMark = (i == 0 || i == numTicks - 1 || i == numTicks / 2);
+        const float depth    = isKeyMark ? 0.85f : 0.60f;
+
         // Contact shadow — offset down-right, away from the light.
         g.setColour (Colour (0x50000000));
         g.drawLine (x1 + 0.75f, y1 + 1.0f, x2 + 0.75f, y2 + 1.0f, tickW);
 
-        const bool isKeyMark = (i == 0 || i == numTicks - 1 || i == numTicks / 2);
-        const float alpha    = isKeyMark ? 0.78f : 0.50f;
-
-        g.setColour (textSecondary.withAlpha (alpha));
+        // The cut itself.
+        g.setColour (Colours::black.withAlpha (depth * 0.60f));
         g.drawLine (x1, y1, x2, y2, tickW);
 
-        // Hairline catchlight on the key marks, as if inked proud of the panel.
-        if (isKeyMark)
-        {
-            g.setColour (Colours::white.withAlpha (0.16f));
-            g.drawLine (x1, y1 - tickW * 0.35f, x2, y2 - tickW * 0.35f, 0.8f);
-        }
+        // Lit metal core above the groove — the engraved highlight.
+        g.setColour (textSecondary.withAlpha (depth));
+        g.drawLine (x1, y1 - tickW * 0.30f, x2, y2 - tickW * 0.30f, tickW * 0.50f);
     }
 }
 
