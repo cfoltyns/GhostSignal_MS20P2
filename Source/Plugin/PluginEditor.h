@@ -68,8 +68,14 @@ private:
     // Update tape delay time knob visibility based on time mode
     void updateTimeKnobVisibility();
 
+    // Show the selected tape time mode in the centre of the mode knob
+    void updateTapeTimeModeCenterText();
+
     // Show the selected noise colour in the centre of the noise type knob
     void updateNoiseTypeCenterText();
+
+    // Reflect the tape delay on/off state in the switch text (ON / OFF)
+    void updateTapeSwitchAppearance();
 
     // Apply the current SYNC toggle state to the given LFO (0..3):
     //  - sync ON: rate snaps to the 14 tempo divisions (value >= 0.5)
@@ -109,6 +115,10 @@ private:
 
     // Last noise type index shown in the knob centre (avoids redundant repaints)
     int lastNoiseTypeIndex = -1;
+
+    // Last tape time-mode index shown in the mode knob centre (avoids
+    // redundant repaints)
+    int lastTapeTimeModeIndex = -1;
 
     Panel          osc1Panel     { "VCO1" };
     juce::ComboBox osc1Waveform;
@@ -219,7 +229,9 @@ private:
 
     // ── TAPE DELAY ───────────────────────────────────────────────────────────
     Panel          tapeDelayPanel { "TAPE DELAY" };
-    juce::ComboBox tapeDelayMode;
+    // Time-mode selector as a knob (same pattern as the noise-type knob):
+    // the selected mode name is shown in the centre of the knob.
+    LabeledKnob    tapeDelayMode { "Mode" };
     LabeledKnob    tapeDelayTime     { "Time" };
     LabeledKnob    tapeDelayFeedback { "FB" };
     LabeledKnob    tapeDelayMix      { "Mix" };
@@ -228,8 +240,9 @@ private:
     LabeledKnob    tapeDelayWow      { "Wow" };
     LabeledKnob    tapeDelayFlutter  { "Flut" };
 
-    // ── TAPE DELAY ON/OFF BUTTON ─────────────────────────────────────────────
-    juce::TextButton tapeDelayOnOff { "TAPE" };
+    // ── TAPE DELAY ON/OFF SWITCH ─────────────────────────────────────────────
+    // Toggle switch showing the tape delay state as ON / OFF text.
+    juce::TextButton tapeDelayOnOff { "OFF" };
 
     // ── RANDOMIZE BUTTON (lockable) ───────────────────────────────────────────
     juce::TextButton randomizeButton { "RANDOMIZE" };
@@ -290,7 +303,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   glideTimeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> voiceModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   tapeDelayEnableAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> tapeDelayTimeModeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayTimeModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayTimeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayFeedbackAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayMixAttachment;

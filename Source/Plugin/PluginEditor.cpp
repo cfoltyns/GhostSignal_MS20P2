@@ -266,8 +266,19 @@ PluginEditor::PluginEditor (PluginProcessor& p)
 
     // ── TAPE DELAY ────────────────────────────────────────────────────────────
     addAndMakeVisible (tapeDelayPanel);
+
+    // Time-mode selector as a knob (same pattern as the noise-type knob):
+    // a discrete selector stepping through the modes, with the selected mode
+    // name shown in the centre of the knob.
+    tapeDelayMode.getSlider().setRange (0.0, (double) Parameters::tapeDelayTimeModeChoices.size() - 1.0, 1.0);
+    updateTapeTimeModeCenterText();
+    tapeDelayMode.getSlider().onValueChange = [this]
+    {
+        updateTapeTimeModeCenterText();
+        updateTimeKnobVisibility();
+    };
     addAndMakeVisible (tapeDelayMode);
-    tapeDelayMode.addItemList (Parameters::tapeDelayTimeModeChoices, 1);
+
     addAndMakeVisible (tapeDelayTime);
     addAndMakeVisible (tapeDelayFeedback);
     addAndMakeVisible (tapeDelayMix);
@@ -276,10 +287,10 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     addAndMakeVisible (tapeDelayWow);
     addAndMakeVisible (tapeDelayFlutter);
 
-    // ── TAPE DELAY ON/OFF BUTTON (labeled toggle with LED indicator) ───────────
+    // ── TAPE DELAY ON/OFF SWITCH (labeled toggle showing the state) ───────────
     addAndMakeVisible (tapeDelayOnOff);
     tapeDelayOnOff.setClickingTogglesState (true);
-    tapeDelayOnOff.setButtonText ("TAPE");
+    tapeDelayOnOff.setButtonText ("OFF");
     tapeDelayOnOff.setColour (juce::TextButton::buttonColourId, GhostSignalLookAndFeel::knobBody);
     tapeDelayOnOff.setColour (juce::TextButton::buttonOnColourId, GhostSignalLookAndFeel::accent);
     tapeDelayOnOff.setColour (juce::TextButton::textColourOffId, GhostSignalLookAndFeel::textSecondary);
@@ -287,8 +298,9 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     // Use the GhostSignal look and feel for consistent button rendering
     tapeDelayOnOff.setLookAndFeel (&lnf);
     tapeDelayOnOff.setAlpha (0.85f);
-    // Mode combo box: show/hide time knob based on selected mode
-    tapeDelayMode.onChange = [this] { updateTimeKnobVisibility(); };
+    // Immediate label feedback on click; the timer keeps it in sync with the
+    // parameter (host automation, saved state) either way.
+    tapeDelayOnOff.onClick = [this] { updateTapeSwitchAppearance(); };
 
     // ── RANDOMIZE BUTTON (two-click confirmation) ─────────────────────────────
     addAndMakeVisible (randomizeButton);
@@ -376,7 +388,8 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     glideTimeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramGlideTime,    glideTime.getSlider());
     voiceModeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramVoiceMode,    voiceModeBox);
     tapeDelayEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, Parameters::paramTapeDelayEnable, tapeDelayOnOff);
-    tapeDelayTimeModeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramTapeDelayTimeMode, tapeDelayMode);
+    tapeDelayTimeModeAttachment =
+        std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayTimeMode, tapeDelayMode.getSlider());
     tapeDelayTimeAttachment     = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayTime, tapeDelayTime.getSlider());
     tapeDelayFeedbackAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayFeedback, tapeDelayFeedback.getSlider());
     tapeDelayMixAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayMix, tapeDelayMix.getSlider());
@@ -1280,18 +1293,9 @@ void PluginEditor::layoutRow2 (int x, int y, int totalW, int totalH,
         const R botRow (curX + padH, y + knobAreaTop + knobRowH + gap,
                         tapeW - 2 * padH, knobRowH);
 
-        // Mode combo box takes the left ~1/3 of the top row
-        const int modeComboW = (tapeW - 2 * padH) / 3;
-        const int modeComboH = juce::jmax (18, (int) (knobRowH * 0.45f));
-        const int modeComboX = curX + padH;
-        const int modeComboY = y + knobAreaTop + (knobRowH - modeComboH) / 2;
-        tapeDelayMode.setBounds (modeComboX, modeComboY, modeComboW, modeComboH);
-
-        // Feedback and Mix knobs take the right ~2/3
-        const int knobStartX = modeComboX + modeComboW + padH;
-        const int remainingW = (tapeW - 2 * padH) - modeComboW - padH;
-        const R fbMixArea (knobStartX, y + knobAreaTop, remainingW, knobRowH);
-        placeKnobRow ({ &tapeDelayFeedback, &tapeDelayMix }, fbMixArea, smallKnobD);
+        // Top row: Mode, Feedback and Mix knobs share the full width
+        placeKnobRow ({ &tapeDelayMode, &tapeDelayFeedback, &tapeDelayMix },
+                      topRow, smallKnobD);
         placeKnobRow ({ &tapeDelayTime, &tapeDelayAge, &tapeDelaySat, &tapeDelayWow, &tapeDelayFlutter }, botRow, smallKnobD);
 
         // Tape delay on/off button — labeled toggle positioned in the
@@ -1463,8 +1467,39 @@ void PluginEditor::syncEnvDisplays()
 
 void PluginEditor::updateTimeKnobVisibility()
 {
-    // Show the Time knob only in MS mode (choice ID 7, since items start at 1)
-    tapeDelayTime.setVisible (tapeDelayMode.getSelectedId() == 7);
+    // Show the Time knob only in MS mode ("MS" is the 7th choice, i.e. index 6)
+    tapeDelayTime.setVisible ((int) tapeDelayMode.getSlider().getValue() == 6);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// updateTapeTimeModeCenterText() — show the selected tape time mode in the
+// centre of the mode knob (same pattern as the noise-type knob).
+// ─────────────────────────────────────────────────────────────────────────────
+
+void PluginEditor::updateTapeTimeModeCenterText()
+{
+    const int numModes = Parameters::tapeDelayTimeModeChoices.size();
+    const int idx = juce::jlimit (0, numModes - 1,
+                                  (int) (tapeDelayMode.getSlider().getValue() + 0.5f));
+    if (idx == lastTapeTimeModeIndex)
+        return;
+
+    lastTapeTimeModeIndex = idx;
+    tapeDelayMode.setCenterText (Parameters::tapeDelayTimeModeChoices[idx]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// updateTapeSwitchAppearance() — reflect the tape delay on/off state in the
+// switch text (ON / OFF).
+// ─────────────────────────────────────────────────────────────────────────────
+
+void PluginEditor::updateTapeSwitchAppearance()
+{
+    const bool on = tapeDelayOnOff.getToggleState();
+    const juce::String text = on ? "ON" : "OFF";
+    if (tapeDelayOnOff.getButtonText() == text)
+        return;
+    tapeDelayOnOff.setButtonText (text);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1725,11 +1760,13 @@ void PluginEditor::timerCallback()
     updatePulseWidthVisibility();
     updateTimeKnobVisibility();
     updateNoiseTypeCenterText();
+    updateTapeTimeModeCenterText();
 
     auto& apvts = audioProcessor.getAPVTS();
     const bool tapeEnabled = (apvts.getRawParameterValue (Parameters::paramTapeDelayEnable) != nullptr)
                              && (apvts.getRawParameterValue (Parameters::paramTapeDelayEnable)->load() > 0.5f);
     tapeDelayOnOff.setToggleState (tapeEnabled, juce::dontSendNotification);
+    updateTapeSwitchAppearance();
 
     syncEnvDisplays();
 
