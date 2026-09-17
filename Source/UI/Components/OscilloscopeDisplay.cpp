@@ -166,9 +166,15 @@ void OscilloscopeDisplay::paint (juce::Graphics& g)
             trace.lineTo (x, y);
     }
 
-    // Subtle glow behind the trace
-    g.setColour (GhostSignalLookAndFeel::accent.withAlpha (0.15f));
-    g.strokePath (trace, juce::PathStrokeType (3.0f));
+    // Very subtle soft glow around the trace: layered wide strokes at low
+    // alpha build a gentle luminous haze with a smooth falloff — no hard
+    // halo, no neon bloom. Trace colour and shape are unchanged.
+    g.setColour (GhostSignalLookAndFeel::accent.withAlpha (0.020f));
+    g.strokePath (trace, juce::PathStrokeType (8.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.setColour (GhostSignalLookAndFeel::accent.withAlpha (0.045f));
+    g.strokePath (trace, juce::PathStrokeType (5.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.setColour (GhostSignalLookAndFeel::accent.withAlpha (0.080f));
+    g.strokePath (trace, juce::PathStrokeType (3.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     // Main trace
     g.setColour (GhostSignalLookAndFeel::accent);

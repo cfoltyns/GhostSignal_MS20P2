@@ -808,9 +808,9 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
         {
             const int bodyTop        = y + titleH + vGap / 2;
             const int comboTop       = y + row1Top;
-            const int gapAboveCombo  = 4;
+            const int gapAboveCombo  = 10;   // breathing room between screen and menu
             const int avail          = comboTop - bodyTop - gapAboveCombo;
-            const int dH             = juce::jlimit (0, 28, avail);
+            const int dH             = juce::jlimit (0, 33, avail);   // ~18% taller
             osc1Scope.setVisible (dH >= 14);
             if (dH >= 14)
                 osc1Scope.setBounds (curX + padH, comboTop - gapAboveCombo - dH,
@@ -949,9 +949,9 @@ void PluginEditor::layoutRow1 (int x, int y, int totalW, int totalH,
         {
             const int bodyTop        = y + titleH + vGap / 2;
             const int comboTop       = y + row1Top;
-            const int gapAboveCombo  = 4;
+            const int gapAboveCombo  = 10;   // breathing room between screen and menu
             const int avail          = comboTop - bodyTop - gapAboveCombo;
-            const int dH             = juce::jlimit (0, 28, avail);
+            const int dH             = juce::jlimit (0, 33, avail);   // ~18% taller
             osc2Scope.setVisible (dH >= 14);
             if (dH >= 14)
                 osc2Scope.setBounds (curX + padH, comboTop - gapAboveCombo - dH,
