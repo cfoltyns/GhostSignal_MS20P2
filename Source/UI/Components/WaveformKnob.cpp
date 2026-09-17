@@ -248,8 +248,8 @@ void WaveformKnob::WaveformSlider::paint (juce::Graphics& g)
     const bool hovered  = enabled && isMouseOver();
     const bool dragging = enabled && isMouseButtonDown();
 
-    // Shared industrial knob body — identical layers to every other knob in the
-    // plugin (drop shadow, flange, cylindrical side wall, grip grooves, top).
+    // Shared knob body — identical layers to every other knob in the plugin
+    // (contact shadow, grainy rim, grainy face, soft top highlight).
     GhostSignalLookAndFeel::drawIndustrialKnobBody (g, { cx, cy }, radius, enabled, hovered, dragging);
 
     // Radial tick marks, same count as every other knob in the plugin. The band

@@ -146,8 +146,8 @@ The interface features a complete redesign with a clean, modern, premium aesthet
 
 - **Color palette**: Deep charcoal background (#0A0A0C) with dark slate panels (#141418),
   subtle borders, and a single muted accent color (#5C6B5E)
-- **Custom knobs**: Brushed-metal texture with chrome rims, machined aluminum center caps,
-  dual-arc value indicators, and subtle glow effects
+- **Custom knobs**: Same dark grainy surface as the section panels with a very
+  soft top highlight, position pointer, tick marks, value arcs, and subtle glow effects
 - **Modular layout**: Signal-flow-based sections (Oscillators → Mixer → Filter → Envelopes →
   LFOs → Effects → Master) with generous spacing and consistent grid alignment
 - **Visual hierarchy**: Important controls (Cutoff, Resonance, Master Volume) are larger;

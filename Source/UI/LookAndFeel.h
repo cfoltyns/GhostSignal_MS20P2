@@ -3,9 +3,9 @@
  *
  * (c) 2026 Ghost Signal
  *
- * Description: Industrial LookAndFeel — black molded plastic potentiometer
- *              knobs with wide mounting flanges, cylindrical side walls,
- *              grip grooves, and dark-on-dark 3D shading.
+ * Description: Industrial LookAndFeel — knobs finished in the same dark,
+ *              grainy surface as the section panels, with a very soft top
+ *              highlight, a light contact shadow, and dark-on-dark shading.
  *
  * Design system:
  *   Background:  #0A0A0C  (deep charcoal)
@@ -67,11 +67,11 @@ public:
     static const juce::Colour knobBody;
     static const juce::Colour panelShadow;
 
-    // ─── Industrial molded knob rendering (shared) ─────────────────────────────
-    // Physical knob body: drop shadow → mounting flange → cylindrical side wall →
-    // grip grooves → top surface → bevels. Optional hover/drag feedback.
-    // Shared by the rotary LookAndFeel and the custom WaveformSlider so every
-    // knob in the plugin has the same hardware appearance.
+    // ─── Knob rendering (shared) ────────────────────────────────────────────────
+    // Knob surface: contact shadow → grainy rim disc → grainy face with a very
+    // soft top highlight. Uses the exact same grain as the section panels.
+    // Shared by the rotary LookAndFeel and the WaveformKnob so every knob in
+    // the plugin has the same appearance.
     static void drawIndustrialKnobBody (juce::Graphics& g,
                                         juce::Point<float> centre,
                                         float radius,
@@ -79,8 +79,9 @@ public:
                                         bool hovered = false,
                                         bool dragging = false);
 
-    // Small center detail for the industrial knob; the value text or waveform
-    // icon is drawn on top.
+    // ─── Knob rendering (shared) ────────────────────────────────────────────────
+    // Small center detail for the knob; the value text or waveform icon is
+    // drawn on top. Same grain as the knob face, one shade darker.
     static void drawIndustrialKnobCap (juce::Graphics& g,
                                        juce::Point<float> centre,
                                        float capRadius,

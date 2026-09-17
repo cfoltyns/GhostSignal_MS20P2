@@ -4,8 +4,9 @@
  * (c) 2026 Ghost Signal
  *
  * Description: Premium industrial LookAndFeel implementation.
- *              Knobs feature brushed-metal texture, chrome rim, machined
- *              aluminum center cap, and a dual-arc value indicator.
+ *              Knobs are finished in the same dark, grainy surface as the
+ *              section panels — panel colour plus the shared grain tile — with
+ *              only a very soft top highlight and a light contact shadow.
  *              Panels have recessed bodies with inner shadows and subtle
  *              beveled edges.
  */
@@ -28,292 +29,134 @@ const Colour GhostSignalLookAndFeel::disabled     { Colour (0xFF4A4A5A) };
 const Colour GhostSignalLookAndFeel::knobBody    { Colour (0xFF2A2A3A) };
 const Colour GhostSignalLookAndFeel::panelShadow { Colour (0x30000000) };
 
-// ─── Industrial molded knob geometry (shared) ────────────────────────────────
+// ─── Knob geometry (shared) ──────────────────────────────────────────────────
 // Proportions relative to the knob's overall radius. Shared by the LookAndFeel
-// rotary renderer and the WaveformSlider so every knob in the plugin has
+// rotary renderer and the WaveformKnob so every knob in the plugin has
 // identical physical proportions.
 namespace
 {
-    constexpr float knobFlangeScale = 0.88f;   // flange radius / overall radius
+    constexpr float knobFlangeScale = 0.88f;   // rim disc radius / overall radius
     constexpr float knobBodyScale   = 0.65f;   // body radius / overall radius
-    constexpr float knobTopScale    = 0.58f;   // top surface radius / overall radius
     constexpr float knobCapScale    = 0.20f;   // center detail radius / overall radius
+    constexpr float knobGrainOpacity = 0.55f;  // grain opacity — same as panels
 }
 
-// ─── Industrial molded knob body (shared) ────────────────────────────────────
-// Physical layers, outside-in:
-//   drop shadow ? mounting flange ? cylindrical side wall ? grip grooves ?
-//   top surface ? bevels/highlights.
-// `hovered`/`dragging` add a gentle contrast lift (visual feedback only).
+// ─── Simplified knob body (shared) ───────────────────────────────────────────
+// The knob is made of the same material as the dark section panels: the same
+// panel colour and the exact same fine grain tile at the same opacity. On top
+// of that, only three things:
+//   • a very light contact shadow underneath,
+//   • a simple soft rim so the circular shape reads cleanly,
+//   • a single very soft highlight across the top (top-left to top-center) —
+//     just enough to suggest a slight curve or bevel.
+// No brushed metal, no speculars, no sharp reflections, no heavy shadows.
+// `hovered`/`dragging` only lift the highlight slightly (visual feedback only).
 
 void GhostSignalLookAndFeel::drawIndustrialKnobBody (Graphics& g,
-                                                      Point<float> centre,
-                                                      float radius,
-                                                      bool enabled,
-                                                      bool hovered,
-                                                      bool dragging)
+                                                     Point<float> centre,
+                                                     float radius,
+                                                     bool enabled,
+                                                     bool hovered,
+                                                     bool dragging)
 {
     const float cx = centre.x;
     const float cy = centre.y;
     const float r  = radius;
 
-    const float flangeR = r * knobFlangeScale;
-    const float bodyR   = r * knobBodyScale;
-    const float topR    = r * knobTopScale;
+    const float flangeR = r * knobFlangeScale;   // soft rim disc
+    const float bodyR   = r * knobBodyScale;     // knob face
 
-    // Subtle brightness boost when dragging for visual feedback
-    const float dragBoost = dragging ? 0.08f : 0.0f;
-
-    // Black brushed-metal palette — neutral gunmetal, no colour tint. The top
-    // face is anodized grey that catches a top-left key light; the side wall
-    // and flange fall nearly black for weight and solidity.
-    const Colour colTopSurf    = Colour (0xFF191B1E).brighter (dragBoost);
-    const Colour colTopHigh    = Colour (0xFF26292E).brighter (dragBoost);
-    const Colour colSideMid    = Colour (0xFF141519).brighter (dragBoost);
-    const Colour colSideShadow = Colour (0xFF07080A).brighter (dragBoost);
-    const Colour colDeepShadow = Colour (0xFF040506).brighter (dragBoost);
-    const Colour colFlangeTop  = Colour (0xFF1A1C1F).brighter (dragBoost);
-    const Colour colFlangeBot  = Colour (0xFF0A0B0D).brighter (dragBoost);
-
+    // ── Minimal contact shadow ────────────────────────────────────────────────
+    // A few progressively larger, faint black ellipses offset downward, so the
+    // knob sits on the panel. Deliberately light — no heavy drop shadow.
     for (int i = 0; i < 4; ++i)
     {
         const float sr = flangeR * (1.0f + i * 0.025f);
         const float dy = 1.0f + i * 1.8f;
-        const uint8 alpha = static_cast<uint8>(0x48 - i * 0x0E);
+        const uint8 alpha = static_cast<uint8> (0x2C - i * 0x0A);
         g.setColour (Colour (static_cast<uint32> (alpha) << 24));
         g.fillEllipse (cx - sr, cy - sr + dy, sr * 2.0f, sr * 2.0f);
     }
 
-    {
-        ColourGradient flangeGrad (colFlangeTop, cx, cy - flangeR * 0.3f,
-                                   colFlangeBot, cx, cy + flangeR * 0.8f,
-                                   false);
-        g.setGradientFill (flangeGrad);
-        g.fillEllipse (cx - flangeR, cy - flangeR, flangeR * 2.0f, flangeR * 2.0f);
+    // ── Soft rim (base disc) ──────────────────────────────────────────────────
+    // Same panel colour with the same grain as the panels, so the rim reads as
+    // part of the chassis surface rather than a separate metal/plastic ring.
+    g.setColour (panel);
+    g.fillEllipse (cx - flangeR, cy - flangeR, flangeR * 2.0f, flangeR * 2.0f);
 
-        Path flangeHighlight;
-        flangeHighlight.addCentredArc (cx, cy, flangeR - 1.0f, flangeR - 1.0f, 0.0f,
-                                       0.75f * MathConstants<float>::pi,
-                                       1.75f * MathConstants<float>::pi, true);
-        g.setColour (Colour (hovered ? 0x40FFFFFF : 0x28FFFFFF));
-        g.strokePath (flangeHighlight, PathStrokeType (1.5f, PathStrokeType::curved, PathStrokeType::rounded));
-
-        Path flangeShadow;
-        flangeShadow.addCentredArc (cx, cy, flangeR - 1.0f, flangeR - 1.0f, 0.0f,
-                                    -0.25f * MathConstants<float>::pi,
-                                     0.25f * MathConstants<float>::pi, true);
-        g.setColour (Colour (0x60000000));
-        g.strokePath (flangeShadow, PathStrokeType (2.0f, PathStrokeType::curved, PathStrokeType::rounded));
-    }
-
-    {
-        ColourGradient sideGrad (colSideMid, cx, cy - bodyR,
-                                 colSideShadow, cx, cy + bodyR,
-                                 false);
-        sideGrad.addColour (0.5f, colDeepShadow);
-        g.setGradientFill (sideGrad);
-        g.fillEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
-
-        Path sideTopHighlight;
-        sideTopHighlight.addCentredArc (cx, cy, bodyR - 0.5f, bodyR - 0.5f, 0.0f,
-                                        0.70f * MathConstants<float>::pi,
-                                        1.80f * MathConstants<float>::pi, true);
-        g.setColour (Colour (hovered ? 0x48FFFFFF : 0x30FFFFFF));
-        g.strokePath (sideTopHighlight, PathStrokeType (1.0f, PathStrokeType::curved, PathStrokeType::rounded));
-    }
-
-    {
-        ColourGradient topGrad (colTopHigh, cx - topR * 0.4f, cy - topR * 0.5f,
-                                colTopSurf, cx + topR * 0.3f, cy + topR * 0.5f,
-                                true);
-        topGrad.addColour (0.6f, Colour (0xFF1C1E22));
-        g.setGradientFill (topGrad);
-        g.fillEllipse (cx - topR, cy - topR, topR * 2.0f, topR * 2.0f);
-
-        Path topHighlight;
-        topHighlight.addCentredArc (cx, cy, topR * 0.85f, topR * 0.85f, 0.0f,
-                                    0.95f * MathConstants<float>::pi,
-                                    1.55f * MathConstants<float>::pi, true);
-        g.setColour (Colour (hovered ? 0x30FFFFFF : 0x1CFFFFFF));
-        g.strokePath (topHighlight, PathStrokeType (1.0f, PathStrokeType::curved, PathStrokeType::rounded));
-    }
-
-    // ── Brushed-metal grain (horizontal machine marks) ──────────────────────────
-    // Fine horizontal strokes across the whole body, like shavings on anodized
-    // aluminum. Brightness varies deterministically per line (index hash, no
-    // randomness) so the texture never shimmers between repaints.
     {
         g.saveState();
-        Path grainClip;
-        grainClip.addEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
-        g.reduceClipRegion (grainClip);
-
-        const float lineSpacing = jmax (1.0f, bodyR * 0.055f);
-        const int   numLines    = (int) (bodyR * 2.0f / lineSpacing) + 2;
-
-        for (int i = 0; i < numLines; ++i)
-        {
-            const float ly  = cy - bodyR + (float) i * lineSpacing;
-            const float hsh = std::fmod (std::sin ((float) i * 12.9898f) * 43758.5453f, 1.0f);
-            const float n   = hsh < 0.0f ? hsh + 1.0f : hsh;
-
-            if (n > 0.80f)   // occasional bright shavings that catch the light
-                g.setColour (Colours::white.withAlpha (0.05f + (n - 0.80f) * 0.50f));
-            else             // dark machining marks
-                g.setColour (Colours::black.withAlpha (0.08f + n * 0.10f));
-
-            g.drawHorizontalLine ((int) ly, cx - bodyR, cx + bodyR);
-        }
-
+        Path rimClip;
+        rimClip.addEllipse (cx - flangeR, cy - flangeR, flangeR * 2.0f, flangeR * 2.0f);
+        g.reduceClipRegion (rimClip);
+        g.setTiledImageFill (getPanelGrainTile(), 0, 0, knobGrainOpacity);
+        g.fillAll();
         g.restoreState();
     }
 
-    // ── Soft bevel, inner shadow and mild specular highlight ──────────────────
-    // Bevel where the top surface rolls into the side wall, an inner shadow
-    // around the lower rim of that surface, and a soft specular blob toward the
-    // upper-left light source. Black/white alpha only, so the palette is
-    // unchanged; `hovered`/`dragging` lift the highlights very slightly.
-    const float lift = dragging ? 0.06f : (hovered ? 0.03f : 0.0f);
+    // Simple soft rim: a hairline edge around the base disc plus one faint
+    // catch of light along its top-left arc. Nothing harder than that.
+    g.setColour (Colours::black.withAlpha (0.28f));
+    g.drawEllipse (cx - flangeR + 0.5f, cy - flangeR + 0.5f,
+                   flangeR * 2.0f - 1.0f, flangeR * 2.0f - 1.0f, 1.0f);
 
     {
-        const float bevelR = topR + (bodyR - topR) * 0.45f;
+        const float lift = dragging ? 0.03f : (hovered ? 0.015f : 0.0f);
 
-        // Upper bevel catches the light …
-        Path bevelLight;
-        bevelLight.addCentredArc (cx, cy, bevelR, bevelR, 0.0f,
-                                  0.82f * MathConstants<float>::pi,
-                                  1.68f * MathConstants<float>::pi, true);
-        g.setColour (Colours::white.withAlpha (0.10f + lift));
-        g.strokePath (bevelLight, PathStrokeType (1.2f, PathStrokeType::curved, PathStrokeType::rounded));
-
-        // … lower bevel falls away into shadow
-        Path bevelDark;
-        bevelDark.addCentredArc (cx, cy, bevelR, bevelR, 0.0f,
-                                 -0.18f * MathConstants<float>::pi,
-                                  0.18f * MathConstants<float>::pi, true);
-        g.setColour (Colour (0x3A000000));
-        g.strokePath (bevelDark, PathStrokeType (1.8f, PathStrokeType::curved, PathStrokeType::rounded));
-    }
-
-    {
-        // Inner shadow: the top surface curves away from the light toward its
-        // lower-right rim, so that side sinks into the body.
-        Path innerShadow;
-        innerShadow.addCentredArc (cx, cy, topR * 0.93f, topR * 0.93f, 0.0f,
-                                   0.10f * MathConstants<float>::pi,
-                                   0.90f * MathConstants<float>::pi, true);
-        g.setColour (Colour (0x34000000));
-        g.strokePath (innerShadow, PathStrokeType (1.8f, PathStrokeType::curved, PathStrokeType::rounded));
-
-        // Soft secondary bounce — faint light returning from the panel onto the
-        // lower-right side of the face, lifting it out of pure shadow.
-        Path bounce;
-        bounce.addCentredArc (cx, cy, topR * 0.80f, topR * 0.80f, 0.0f,
-                              -0.05f * MathConstants<float>::pi,
-                               0.35f * MathConstants<float>::pi, true);
-        g.setColour (Colours::white.withAlpha (0.07f));
-        g.strokePath (bounce, PathStrokeType (1.2f, PathStrokeType::curved, PathStrokeType::rounded));
-
-        // Specular highlight, offset toward the upper-left light source.
-        const float specR = topR * 0.60f;
-        const float specX = cx - topR * 0.32f;
-        const float specY = cy - topR * 0.28f;
-
-        ColourGradient spec (Colours::white.withAlpha (0.10f + lift * 0.9f), specX, specY,
-                             Colours::white.withAlpha (0.0f), specX + specR, specY + specR, true);
-        g.setGradientFill (spec);
-        g.fillEllipse (specX - specR, specY - specR, specR * 2.0f, specR * 2.0f);
-
-        // Tight core glint on top of the soft blob — a hard machined catchlight
-        // aligned with the brushed grain (horizontal), as metal reflects.
-        g.setColour (Colours::white.withAlpha (0.15f + lift * 1.1f));
-        g.fillEllipse (specX - specR * 0.48f, specY - specR * 0.16f,
-                       specR * 0.96f, specR * 0.32f);
-    }
-
-    {
-        g.setColour (Colour (0x30000000));
-        g.drawEllipse (cx - bodyR + 0.5f, cy - bodyR + 0.5f,
-                       bodyR * 2.0f - 1.0f, bodyR * 2.0f - 1.0f, 1.0f);
-
-        g.setColour (Colour (0x20000000));
-        g.drawEllipse (cx - topR + 0.5f, cy - topR + 0.5f,
-                       topR * 2.0f - 1.0f, topR * 2.0f - 1.0f, 1.0f);
-
-        // Machined edge — bright chamfer ring where the domed face meets the
-        // bevel, reading as turned metal rather than a soft plastic roll.
-        g.setColour (Colours::white.withAlpha (0.10f));
-        g.drawEllipse (cx - topR + 1.5f, cy - topR + 1.5f,
-                       topR * 2.0f - 3.0f, topR * 2.0f - 3.0f, 1.0f);
-    }
-
-    {
-        ColourGradient vignetteGrad (Colour (0x00000000), cx, cy,
-                                     Colour (0x18000000), cx + flangeR * 0.7f, cy + flangeR * 0.7f,
-                                     true);
-        g.setGradientFill (vignetteGrad);
-        g.fillEllipse (cx - flangeR, cy - flangeR, flangeR * 2.0f, flangeR * 2.0f);
-    }
-
-    // ── Contact ambient occlusion ──────────────────────────────────────────────
-    // Soft darkening on the panel right where the knob meets it, so the knob
-    // sits ON the surface instead of being pasted onto it. Transparent over
-    // the whole face; the falloff peaks just outside the flange rim.
-    {
-        ColourGradient ao (Colour (0x00000000), cx, cy,
-                           Colour (0x00000000), cx + flangeR * 1.30f, cy, true);
-        ao.addColour (0.62f, Colour (0x00000000));
-        ao.addColour (0.80f, Colour (0x2C000000));
-        ao.addColour (1.00f, Colour (0x00000000));
-        g.setGradientFill (ao);
-        g.fillEllipse (cx - flangeR * 1.30f, cy - flangeR * 1.30f,
-                       flangeR * 2.60f, flangeR * 2.60f);
-    }
-
-    // ── Raised rim bevel (outer edge of the flange) ────────────────────────────
-    // A clear chamfered rim: thin catchlight along its top-left arc, darker
-    // roll-off along the bottom, so the edge reads as machined hardware
-    // rather than a flat disc.
-    {
         Path rimLight;
         rimLight.addCentredArc (cx, cy, flangeR - 0.8f, flangeR - 0.8f, 0.0f,
                                 0.80f * MathConstants<float>::pi,
                                 1.70f * MathConstants<float>::pi, true);
-        g.setColour (Colours::white.withAlpha (0.13f + lift * 0.8f));
-        g.strokePath (rimLight, PathStrokeType (1.1f, PathStrokeType::curved, PathStrokeType::rounded));
-
-        Path rimDark;
-        rimDark.addCentredArc (cx, cy, flangeR - 0.8f, flangeR - 0.8f, 0.0f,
-                               -0.20f * MathConstants<float>::pi,
-                                0.20f * MathConstants<float>::pi, true);
-        g.setColour (Colour (0x40000000));
-        g.strokePath (rimDark, PathStrokeType (1.4f, PathStrokeType::curved, PathStrokeType::rounded));
+        g.setColour (Colours::white.withAlpha (0.06f + lift));
+        g.strokePath (rimLight, PathStrokeType (1.0f, PathStrokeType::curved, PathStrokeType::rounded));
     }
 
-    // ── Fine anodized micro-texture ────────────────────────────────────────────
-    // A very low-contrast speckle over the top face on top of the horizontal
-    // brush marks — the same deterministic tile the panels use, so the material
-    // language stays consistent everywhere and the grain never shimmers between
-    // repaints. Kept faint so the brushed strokes remain the dominant texture.
+    // Soft seam where the face meets the rim, so the face stays a clean circle.
+    g.setColour (Colours::black.withAlpha (0.20f));
+    g.drawEllipse (cx - bodyR - 0.5f, cy - bodyR - 0.5f,
+                   bodyR * 2.0f + 1.0f, bodyR * 2.0f + 1.0f, 1.0f);
+
+    // ── Knob face ─────────────────────────────────────────────────────────────
+    // Flat panel colour with the identical grain tile at the identical opacity
+    // the panels use — nothing else on the surface.
+    g.setColour (panel);
+    g.fillEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+
     {
-        const Image& grain = getPanelGrainTile();
-        if (grain.isValid())
-        {
-            g.saveState();
-            Path faceClip;
-            faceClip.addEllipse (cx - topR, cy - topR, topR * 2.0f, topR * 2.0f);
-            g.reduceClipRegion (faceClip);
-            g.setTiledImageFill (grain, 0, 0, 0.12f);
-            g.fillAll();
-            g.restoreState();
-        }
+        g.saveState();
+        Path faceClip;
+        faceClip.addEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+        g.reduceClipRegion (faceClip);
+        g.setTiledImageFill (getPanelGrainTile(), 0, 0, knobGrainOpacity);
+        g.fillAll();
+        g.restoreState();
+    }
+
+    // ── Very soft top highlight ───────────────────────────────────────────────
+    // One gentle pool of light biased toward the top-left / top-center, fading
+    // to nothing well before the bottom of the face. Just enough to suggest a
+    // slight curve; no specular blob, no sharp catchlights.
+    {
+        const float lift  = dragging ? 0.035f : (hovered ? 0.015f : 0.0f);
+        const float hlA   = 0.075f + lift;
+        const float hlX   = cx - bodyR * 0.30f;   // biased toward top-left
+        const float hlY   = cy - bodyR * 0.45f;
+        const float hlRad = bodyR * 1.5f;
+
+        g.saveState();
+        Path hlClip;
+        hlClip.addEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+        g.reduceClipRegion (hlClip);
+        g.setGradientFill (ColourGradient (Colours::white.withAlpha (hlA), hlX, hlY,
+                                           Colours::white.withAlpha (0.0f), hlX, hlY + hlRad,
+                                           true));
+        g.fillEllipse (cx - bodyR, cy - bodyR, bodyR * 2.0f, bodyR * 2.0f);
+        g.restoreState();
     }
 
     // NOTE: radial tick marks are NOT drawn here. They live in the shared
-    // drawIndustrialKnobTicks() helper, which each rotary renderer calls with the
-    // angles of its own value arc. Drawing a second ring from inside the body
-    // would double up on the same annulus (25 marks instead of 13) and fight the
-    // arc sweep, so the body stays purely "hardware".
+    // drawIndustrialKnobTicks() helper, which each rotary renderer calls with
+    // the angles of its own value arc, so the body stays purely "surface".
 
     if (! enabled)
     {
@@ -322,9 +165,9 @@ void GhostSignalLookAndFeel::drawIndustrialKnobBody (Graphics& g,
     }
 }
 
-// ─── Industrial knob cap (shared) ────────────────────────────────────────────
-// Small center detail for the industrial knob; the value text or waveform
-// icon is drawn on top.
+// ─── Simplified knob cap (shared) ────────────────────────────────────────────
+// Small centre detail under the value text / waveform icon: a barely darker
+// recess in the same grain, with only a hairline edge. No glint, no sheen.
 
 void GhostSignalLookAndFeel::drawIndustrialKnobCap (Graphics& g,
                                                     Point<float> centre,
@@ -335,29 +178,26 @@ void GhostSignalLookAndFeel::drawIndustrialKnobCap (Graphics& g,
     const float cy   = centre.y;
     const float capR = capRadius;
 
-    // Small dark circular recess in the center
-    ColourGradient capGrad (Colour (0xFF101114), cx - capR * 0.3f, cy - capR * 0.4f,
-                            Colour (0xFF070809), cx + capR * 0.3f, cy + capR * 0.4f,
-                            true);
-    g.setGradientFill (capGrad);
+    g.setColour (panel.darker (0.10f));
     g.fillEllipse (cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
 
-    // Cap edge
-    g.setColour (Colour (0x40000000));
+    {
+        g.saveState();
+        Path capClip;
+        capClip.addEllipse (cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
+        g.reduceClipRegion (capClip);
+        g.setTiledImageFill (getPanelGrainTile(), 0, 0, knobGrainOpacity);
+        g.fillAll();
+        g.restoreState();
+    }
+
+    g.setColour (Colours::black.withAlpha (0.25f));
     g.drawEllipse (cx - capR + 0.5f, cy - capR + 0.5f,
                    capR * 2.0f - 1.0f, capR * 2.0f - 1.0f, 1.0f);
 
-    // Tiny top-left glint
-    Path capGlint;
-    capGlint.addCentredArc (cx, cy, capR - 1.0f, capR - 1.0f, 0.0f,
-                             1.05f * MathConstants<float>::pi,
-                             1.50f * MathConstants<float>::pi, true);
-    g.setColour (Colour (0x25FFFFFF));
-    g.strokePath (capGlint, PathStrokeType (0.8f, PathStrokeType::curved, PathStrokeType::rounded));
-
     if (! enabled)
     {
-        g.setColour (Colour (0x40000000));
+        g.setColour (disabled.withAlpha (0.40f));
         g.fillEllipse (cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
     }
 }
@@ -550,11 +390,12 @@ const juce::Image& GhostSignalLookAndFeel::getPanelGrainTile()
 
 // ─── Rotary slider rendering ──────────────────────────────────────────────────
 //
-// Industrial molded knob assembled from shared layers (see
+// The knob is assembled from the shared simplified layers (see
 // drawIndustrialKnobBody / drawIndustrialKnobCap):
-//   drop shadow → flange → cylindrical body → grip grooves → top surface →
-//   position indicator → value arc → center cap with readout.
-// Hover adds a gentle sheen; dragging brightens the accent ring and pointer.
+//   contact shadow → grainy rim → grainy face with a soft top highlight →
+//   ticks → position pointer → value arc → center cap with readout.
+// The value/track arcs, pointer, ticks and readout are untouched — only the
+// knob surface itself was simplified to match the panel grain.
 // Purely cosmetic — no interaction or parameter behaviour is changed.
 
 void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
@@ -662,7 +503,7 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
         }
     }
 
-    // ── Industrial knob body (flange, side wall, grip grooves, top) ───────────
+    // ── Knob body (grainy rim + face, soft top highlight) ──────────────────────
     drawIndustrialKnobBody (g, { cx, cy }, r, enabled, hovered, dragging);
 
     // ── Radial tick marks around the outside of the flange ────────────────────
