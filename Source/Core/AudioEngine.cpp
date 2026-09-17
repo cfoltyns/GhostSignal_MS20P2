@@ -214,6 +214,21 @@ void AudioEngine::process(juce::AudioBuffer<float> &buffer,
     vp.lfo4.depth      = getFloat(Parameters::paramLFO4Depth);
     vp.lfo4Dest        = getChoice(Parameters::paramLFO4Dest);
 
+    // Restrict PWM LFO destinations to only work when corresponding oscillator is set to pulse waveform
+    // VCO1 PWM (dest 3) only works when osc1 is pulse
+    // VCO2 PWM (dest 4) only works when osc2 is pulse
+    auto clampPwmDest = [&](int& dest) {
+        // PWM modulation is only valid when the corresponding oscillator is set to pulse waveform
+        if (dest == 3 && vp.osc1.waveform != ::dsp::Waveform::pulse)
+            dest = 0; // VCO1 PWM disabled when VCO1 is not pulse
+        else if (dest == 4 && vp.osc2.waveform != ::dsp::Waveform::pulse)
+            dest = 0; // VCO2 PWM disabled when VCO2 is not pulse
+    };
+    clampPwmDest (vp.lfo1Dest);
+    clampPwmDest (vp.lfo2Dest);
+    clampPwmDest (vp.lfo3Dest);
+    clampPwmDest (vp.lfo4Dest);
+
   // Glide
   vp.glideTime = getFloat(Parameters::paramGlideTime);
   vp.glideEnabled = (getFloat(Parameters::paramGlideTime) > 0.0f);
