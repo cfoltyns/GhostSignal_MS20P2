@@ -95,14 +95,14 @@ void LogoComponent::paint (juce::Graphics& g)
 
     g.setColour (textColour);
     primaryGlyphs.draw (g);
-    g.setColour (juce::Colour (0xffe8653a));
+    g.setColour (juce::Colours::white);
     secondaryGlyphs.draw (g);
 
     // Small signal trace / LED accent: restrained, but enough to identify the
     // GS20 as a technical instrument rather than a plain text label.
     const float traceWidth = juce::jmin (bounds.getWidth() * 0.13f, 34.0f);
     const float traceY = bounds.getBottom() - juce::jmax (2.0f, bounds.getHeight() * 0.10f);
-    g.setColour (juce::Colour (0xffe8653a).withAlpha (0.75f));
+    g.setColour (juce::Colours::white.withAlpha (0.75f));
     g.fillRect (primaryX, traceY, traceWidth, 1.5f);
     g.fillEllipse (primaryX + traceWidth - 2.0f, traceY - 1.5f, 4.0f, 4.0f);
 }
