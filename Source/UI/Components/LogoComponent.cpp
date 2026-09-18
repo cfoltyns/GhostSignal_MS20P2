@@ -14,19 +14,26 @@ namespace
 {
     juce::String findCondensedTypeface()
     {
-        const auto available = juce::Font::findAllTypefaceNames();
-        const char* candidates[] =
+        // Cached — the CoreText enumeration behind findAllTypefaceNames() is
+        // far too expensive to run on every paint.
+        static const juce::String cached = []
         {
-            "Bahnschrift", "Arial Narrow", "Liberation Sans Narrow",
-            "DejaVu Sans Condensed", "Roboto Condensed", "sans-serif"
-        };
+            const auto available = juce::Font::findAllTypefaceNames();
+            const char* candidates[] =
+            {
+                "Bahnschrift", "Arial Narrow", "Liberation Sans Narrow",
+                "DejaVu Sans Condensed", "Roboto Condensed", "sans-serif"
+            };
 
-        for (const auto* candidate : candidates)
-        {
-            if (available.contains (candidate, true))
-                return candidate;
-        }
-        return juce::String();
+            for (const auto* candidate : candidates)
+            {
+                if (available.contains (candidate, true))
+                    return juce::String (candidate);
+            }
+            return juce::String();
+        }();
+
+        return cached;
     }
 }
 

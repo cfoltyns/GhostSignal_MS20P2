@@ -50,20 +50,28 @@ namespace MinimalStyle
     // Linux.
     inline juce::String findMonospaceTypeface()
     {
-        const auto available = juce::Font::findAllTypefaceNames();
-        const char* candidates[] =
+        // Cached: Font::findAllTypefaceNames() hits CoreText and is far too
+        // expensive to call per-font (the standalone's sample showed it eating
+        // the message thread via paintListBoxItem → getMonoFont at 30 Hz).
+        static const juce::String cached = []
         {
-            "JetBrains Mono", "Cascadia Mono", "Cascadia Code", "Consolas",
-            "DejaVu Sans Mono", "Liberation Mono", "Menlo", "Monaco",
-            "Lucida Console", "Courier New"
-        };
+            const auto available = juce::Font::findAllTypefaceNames();
+            const char* candidates[] =
+            {
+                "JetBrains Mono", "Cascadia Mono", "Cascadia Code", "Consolas",
+                "DejaVu Sans Mono", "Liberation Mono", "Menlo", "Monaco",
+                "Lucida Console", "Courier New"
+            };
 
-        for (const auto* candidate : candidates)
-        {
-            if (available.contains (candidate, true))
-                return candidate;
-        }
-        return juce::String();
+            for (const auto* candidate : candidates)
+            {
+                if (available.contains (candidate, true))
+                    return juce::String (candidate);
+            }
+            return juce::String();
+        }();
+
+        return cached;
     }
 
     inline juce::Font getMonoFont (float size, bool bold = false)

@@ -103,18 +103,6 @@ void SynthEngine::timbre (int channel, int value)
     voiceManager.timbreForChannel (channel, value);
 }
 
-void SynthEngine::applyDriftToVoice (VoiceDSP& voice, int voiceIndex)
-{
-    if (voiceIndex < 0 || voiceIndex >= (int) driftEngines.size())
-        return;
-
-    auto& drift = driftEngines[voiceIndex];
-    const auto& dp = drift;
-
-    // Apply static offsets (done on note-on via VoiceDSP)
-    // The voice uses these internally
-}
-
 void SynthEngine::process (juce::AudioBuffer<float>& buffer,
                             juce::MidiBuffer& midi,
                             const VoiceParams& voiceParams,

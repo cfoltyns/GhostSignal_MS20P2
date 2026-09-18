@@ -42,6 +42,11 @@ public:
     // Show/hide the waveform icon in the center (when true, draws icon instead of text)
     void setShowWaveformIcon (bool show);
 
+    // True when the waveform icon is drawn in the knob centre (used to skip
+    // redundant PWM repaints when the icon is hidden).
+    bool isShowingWaveformIcon() const { return slider.isShowingWaveformIcon(); }
+    bool showWaveformIconGuarded() const { return isShowingWaveformIcon(); }
+
     // Set the PWM value (0..1) for the Pulse waveform icon drawing
     void setPwmValue (double pwmValue);
 
@@ -83,6 +88,8 @@ private:
         void setShowWaveformIcon (bool show) { showWaveformIcon = show; }
 
         void setPwmValue (double value) { pwmValue = value; }
+        double getPwmValue() const { return pwmValue; }
+        bool isShowingWaveformIcon() const { return showWaveformIcon; }
 
         juce::String getTextFromValue (double value) override
         {

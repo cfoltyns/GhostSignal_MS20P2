@@ -42,10 +42,6 @@ public:
     void setLfoOutput (int lfoIndex, float value) { lfoOutputs[lfoIndex].store(value); }
 
 private:
-    void handleMidi (const juce::MidiBuffer& midi);
-    void renderVoices (juce::AudioBuffer<float>& buffer, int numSamples);
-    void applyMasterGain (juce::AudioBuffer<float>& buffer);
-
     double sampleRate { 44100.0 };
     int maxBlockSize { 2048 };
     int numOutputChannels { 2 };

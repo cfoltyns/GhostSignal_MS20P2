@@ -16,10 +16,18 @@ enum class PresetCategory
     bass,
     lead,
     pad,
+    brass,
     pluck,
+    keys,
+    strings,
+    bells,
     fx,
+    noise,
+    sequence,
     arp,
-    drum,
+    percussion,
+    polysynth,
+    monosynth,
     user
 };
 
@@ -108,7 +116,7 @@ public:
 
     static juce::String categoryName (PresetCategory category);
 
-private:
+    // Types used by factory preset definitions (public for helper functions)
     struct ParameterOverride
     {
         juce::String id;
@@ -124,6 +132,7 @@ private:
         std::vector<ParameterOverride> overrides;
     };
 
+private:
     juce::AudioProcessorValueTreeState* apvts { nullptr };
     juce::File presetFolder;
     std::vector<PresetRecord> factoryPresets;

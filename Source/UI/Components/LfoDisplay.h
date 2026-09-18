@@ -16,10 +16,10 @@ public:
     LfoDisplay();
     ~LfoDisplay() override = default;
 
-    void setWaveform (int wf) { waveform = wf; repaint(); }
-    void setShape (float s) { shape = juce::jlimit (0.0f, 1.0f, s); repaint(); }
-    void setRate (float r) { rate = juce::jlimit (0.01f, 20.0f, r); repaint(); }
-    void setDepth (float d) { depth = juce::jlimit (0.0f, 1.0f, d); repaint(); }
+    void setWaveform (int wf) { if (wf == waveform) return; waveform = wf; repaint(); }
+    void setShape (float s) { const float c = juce::jlimit (0.0f, 1.0f, s); if (c == shape) return; shape = c; repaint(); }
+    void setRate (float r) { const float c = juce::jlimit (0.01f, 20.0f, r); if (c == rate) return; rate = c; repaint(); }
+    void setDepth (float d) { const float c = juce::jlimit (0.0f, 1.0f, d); if (c == depth) return; depth = c; repaint(); }
 
     void paint (juce::Graphics& g) override;
     void resized() override;

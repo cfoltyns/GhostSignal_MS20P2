@@ -95,11 +95,15 @@ public:
             // First appearance: start the light already at its current
             // position so it never flies in from a stale location.
             ledAngleCurrent = ledAngleTarget;
+            showModRing = true;
+            modLedOverlay.repaint();
             startTimerHz (60);
+            return;
         }
 
         showModRing = true;
-        modLedOverlay.repaint();
+        // The 60 Hz easing timer repaints the overlay itself; avoid queuing
+        // an extra full-component repaint here at the editor's 30 Hz rate.
     }
 
     void clearModulationRing()

@@ -69,8 +69,6 @@ public:
     inline static const juce::String paramSatDrive { "sat_drive" };
 
     // ── LFO / Modulation Generator ────────────────────────────────────────────
-    inline static const juce::String paramLfoShape { "lfo_shape" };
-    inline static const juce::String paramLfoRate  { "lfo_rate" };
 
     // ── LFO1 ────────────────────────────────────────────────────────────────────
     inline static const juce::String paramLFO1Waveform  { "lfo1_waveform" };
@@ -112,8 +110,7 @@ public:
     // Inverted: 0 (CCW) → slowest period, 1 (CW) → fastest period.
     static inline float lfoFreePeriodMs (float normRate)
     {
-        const float t = juce::jlimit (0.0f, 1.0f, 1.0f - normRate);
-        return lfoRateMsMin * (float) std::pow (lfoRateMsMax / lfoRateMsMin, (double) t);
+        return lfoRateMsMin * (float) std::pow (lfoRateMsMax / lfoRateMsMin, (double) juce::jlimit (0.0f, 1.0f, 1.0f - normRate));
     }
 
     // Normalised LFO rate (free half) → frequency in Hz for the DSP.
@@ -179,17 +176,6 @@ public:
         const float beats = lfoSyncDivisions()[juce::jlimit (0, lfoSyncDivisionCount - 1, index)].beats;
         return (float) (bpm / 60.0 * (1.0 / beats));
     }
-
-    // ── EG1 (Delay / Attack / Release — pitch mod source) ─────────────────────
-    inline static const juce::String paramEg1Delay   { "eg1_delay" };
-    inline static const juce::String paramEg1Attack  { "eg1_attack" };
-    inline static const juce::String paramEg1Release { "eg1_release" };
-
-    // ── EG2 (Full ADSR — drives Filter + VCA) ─────────────────────────────────
-    inline static const juce::String paramEg2Attack  { "eg2_attack" };
-    inline static const juce::String paramEg2Decay   { "eg2_decay" };
-    inline static const juce::String paramEg2Sustain { "eg2_sustain" };
-    inline static const juce::String paramEg2Release { "eg2_release" };
 
     // ── ENVELOPE 1 (old style ADSR - used by PluginEditor/AudioEngine) ────────
     inline static const juce::String paramEnv1Attack  { "env1_attack" };

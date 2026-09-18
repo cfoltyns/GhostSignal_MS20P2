@@ -20,10 +20,12 @@ public:
     ~EnvDisplay() override = default;
 
     // --- Setters (called by knob changes) ---
-    void setAttack  (float a) { attackVal  = juce::jlimit (0.0f, 1.0f, a); repaint(); }
-    void setDecay   (float d) { decayVal   = juce::jlimit (0.0f, 1.0f, d); repaint(); }
-    void setSustain (float s) { sustainVal = juce::jlimit (0.0f, 1.0f, s); repaint(); }
-    void setRelease (float r) { releaseVal = juce::jlimit (0.0f, 1.0f, r); repaint(); }
+    // Guarded so the editor's 30 Hz sync only repaints when a value actually
+    // moved — unguarded repaint() here kept the whole UI repainting forever.
+    void setAttack  (float a) { const float c = juce::jlimit (0.0f, 1.0f, a); if (c == attackVal)  return; attackVal  = c; repaint(); }
+    void setDecay   (float d) { const float c = juce::jlimit (0.0f, 1.0f, d); if (c == decayVal)   return; decayVal   = c; repaint(); }
+    void setSustain (float s) { const float c = juce::jlimit (0.0f, 1.0f, s); if (c == sustainVal) return; sustainVal = c; repaint(); }
+    void setRelease (float r) { const float c = juce::jlimit (0.0f, 1.0f, r); if (c == releaseVal) return; releaseVal = c; repaint(); }
 
     // --- Getters (called by timer for two-way sync) ---
     float getAttack()  const { return attackVal; }
@@ -61,10 +63,12 @@ private:
 
 public:
     // Convenience: set values directly from raw parameter values (seconds)
-    void setAttackRaw  (float seconds) { attackVal  = juce::jlimit (0.0f, 1.0f, timeToNorm (seconds)); repaint(); }
-    void setDecayRaw   (float seconds) { decayVal   = juce::jlimit (0.0f, 1.0f, timeToNorm (seconds)); repaint(); }
-    void setSustainRaw (float norm)    { sustainVal = juce::jlimit (0.0f, 1.0f, norm); repaint(); }
-    void setReleaseRaw (float seconds) { releaseVal = juce::jlimit (0.0f, 1.0f, timeToNorm (seconds)); repaint(); }
+    // Guarded like the normalised setters — the editor timer calls these at
+    // 30 Hz, so repaint only when the mapped value actually moved.
+    void setAttackRaw  (float seconds) { const float c = juce::jlimit (0.0f, 1.0f, timeToNorm (seconds)); if (c == attackVal)  return; attackVal  = c; repaint(); }
+    void setDecayRaw   (float seconds) { const float c = juce::jlimit (0.0f, 1.0f, timeToNorm (seconds)); if (c == decayVal)   return; decayVal   = c; repaint(); }
+    void setSustainRaw (float norm)    { const float c = juce::jlimit (0.0f, 1.0f, norm);                  if (c == sustainVal) return; sustainVal = c; repaint(); }
+    void setReleaseRaw (float seconds) { const float c = juce::jlimit (0.0f, 1.0f, timeToNorm (seconds)); if (c == releaseVal) return; releaseVal = c; repaint(); }
 
 private:
     float attackVal  { 0.3f };

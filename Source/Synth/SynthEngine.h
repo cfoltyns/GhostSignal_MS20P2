@@ -64,8 +64,6 @@ public:
     void collectLfoValues (float* lfoValues, int numLfos) const;
 
 private:
-    void applyDriftToVoice (VoiceDSP& voice, int voiceIndex);
-
     VoiceManager voiceManager;
     EngineParams params;
 

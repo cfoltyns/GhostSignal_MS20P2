@@ -13,6 +13,8 @@
 
 #include "LookAndFeel.h"
 
+#include <cmath>
+
 using namespace juce;
 
 // ─── Minimal typeface selector for the preset-mono UI ────────────────────────
@@ -20,20 +22,28 @@ namespace
 {
     static juce::String findMonospaceTypefaceName()
     {
-        const auto available = juce::Font::findAllTypefaceNames();
-        const char* candidates[] =
+        // Cached: Font::findAllTypefaceNames() hits CoreText and is far too
+        // expensive to call per-font (the standalone's sample showed the same
+        // lookup eating the message thread at 30 Hz via paintListBoxItem).
+        static const juce::String cached = []
         {
-            "JetBrains Mono", "Cascadia Mono", "Cascadia Code", "Consolas",
-            "DejaVu Sans Mono", "Liberation Mono", "Menlo", "Monaco",
-            "Lucida Console", "Courier New"
-        };
+            const auto available = juce::Font::findAllTypefaceNames();
+            const char* candidates[] =
+            {
+                "JetBrains Mono", "Cascadia Mono", "Cascadia Code", "Consolas",
+                "DejaVu Sans Mono", "Liberation Mono", "Menlo", "Monaco",
+                "Lucida Console", "Courier New"
+            };
 
-        for (const auto* candidate : candidates)
-        {
-            if (available.contains (candidate, true))
-                return candidate;
-        }
-        return juce::String();
+            for (const auto* candidate : candidates)
+            {
+                if (available.contains (candidate, true))
+                    return juce::String (candidate);
+            }
+            return juce::String();
+        }();
+
+        return cached;
     }
 }
 
@@ -628,10 +638,30 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
 
             // Shrink the font so multi-digit values (e.g. "100") still fit
             // inside the centre cap instead of being clipped.
+            // NOTE: getMonospaceFont() clamps to the 9-11 px band, so this loop
+            // must be bounded + bottom out at 9 px — otherwise a narrow knob
+            // whose text is still wider than maxTextW at 9 px would spin here
+            // forever on the message thread (100% CPU, window never appears).
+            // If it still doesn't fit at 9 px we accept the clip (drawFittedText
+            // is given a single line with minimum scale 0.7) rather than hang.
             const float maxTextW = capR * 3.0f;
-            while (GlyphArrangement::getStringWidth (g.getCurrentFont(), centreText) > maxTextW)
+            for (int shrinkSteps = 0; shrinkSteps < 8; ++shrinkSteps)
             {
-                const float smaller = jlimit (6.0f, 11.0f, g.getCurrentFont().getHeightInPoints() - 0.5f);
+                if (centreText.isEmpty())
+                    break;
+
+                const float textW = GlyphArrangement::getStringWidth (g.getCurrentFont(), centreText);
+                if (textW <= maxTextW || ! std::isfinite (textW))
+                    break;
+
+                const float curH = g.getCurrentFont().getHeightInPoints();
+                if (! std::isfinite (curH) || curH <= 9.0f + 0.001f)
+                    break;
+
+                const float smaller = jmax (9.0f, curH - 0.5f);
+                if (! std::isfinite (smaller) || smaller >= curH - 0.001f)
+                    break;
+
                 g.setFont (GhostSignalLookAndFeel::getMonospaceFont (smaller, true));
             }
 

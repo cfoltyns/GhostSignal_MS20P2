@@ -70,8 +70,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createParameterL
     addFloat (paramMixerVco1Level,   "VCO1 Level",   0.0f, 1.0f, 0.8f);
     addFloat (paramMixerVco2Level,   "VCO2 Level",   0.0f, 1.0f, 0.8f);
     addFloat (paramMixerSubLevel,    "Sub Level",    0.0f, 1.0f, 0.5f);
-    addFloat (paramMixerLfoCvAmount, "LFO/CV Amount", 0.0f, 1.0f, 0.0f);
-    addFloat (paramMixerEgCvAmount,  "EG/CV Amount",  0.0f, 1.0f, 0.0f);
     addFloat (paramMixerDrive,       "Mixer Drive",   0.0f, 1.0f, 0.0f);
 
     // -- FILTER --
@@ -80,9 +78,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createParameterL
     addFloat (paramLPFCutoff, "LPF Cutoff", 20.0f, 20000.0f, 20000.0f, 0.001f, 0.25f);
     addFloat (paramLPFRes,    "LPF Resonance", 0.0f, 1.0f, 0.0f);
     addFloat (paramLPFDrive,  "LPF Drive", 0.0f, 1.0f, 0.0f);
-
-    // -- SATURATION --
-    addFloat (paramSatDrive, "Saturation Drive", 0.0f, 1.0f, 0.0f);
 
     // -- LFO 1 --
     addChoice (paramLFO1Waveform, "LFO1 Waveform", Parameters::lfoWaveformChoices, 0);
@@ -111,17 +106,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createParameterL
     addFloat  (paramLFO4Depth,    "LFO4 Depth", 0.0f, 1.0f, 0.5f);
     addChoice (paramLFO4Dest,    "LFO4 Destination", Parameters::lfoDestinationChoices, 0);
     addFloat  (paramLFO4Sync,    "LFO4 Sync", 0.0f, 1.0f, 0.0f, 1.0f);
-
-    // -- EG1 (Delay / Attack / Release) --
-    addFloat (paramEg1Delay,   "EG1 Delay",   0.0f,   5.0f, 0.0f,  0.001f, 0.5f);
-    addFloat (paramEg1Attack,  "EG1 Attack",  0.001f, 5.0f, 0.01f, 0.001f, 0.5f);
-    addFloat (paramEg1Release, "EG1 Release", 0.001f, 5.0f, 0.3f,  0.001f, 0.5f);
-
-    // -- EG2 (Full ADSR) --
-    addFloat (paramEg2Attack,  "EG2 Attack",  0.001f, 5.0f, 0.01f, 0.001f, 0.5f);
-    addFloat (paramEg2Decay,   "EG2 Decay",   0.001f, 2.0f, 0.1f,  0.001f, 0.5f);
-    addFloat (paramEg2Sustain, "EG2 Sustain", 0.0f,   1.0f, 0.7f,  0.001f, 1.0f);
-    addFloat (paramEg2Release, "EG2 Release", 0.001f, 5.0f, 0.3f,  0.001f, 0.5f);
 
     // -- ENVELOPE 1 (old style ADSR) --
     addFloat (paramEnv1Attack,  "Env1 Attack",  0.001f, 5.0f, 0.01f, 0.001f, 0.5f);
@@ -173,15 +157,12 @@ const juce::StringArray& Parameters::getRandomizableParamIds()
         paramMixerVco1Level,
         paramMixerVco2Level,
         paramMixerSubLevel,
-        paramMixerLfoCvAmount,
-        paramMixerEgCvAmount,
         paramMixerDrive,
         paramHPFCutoff,
         paramHPFRes,
         paramLPFCutoff,
         paramLPFRes,
         paramLPFDrive,
-        paramSatDrive,
         paramLFO1Rate,
         paramLFO1Depth,
         paramLFO2Rate,
@@ -190,13 +171,6 @@ const juce::StringArray& Parameters::getRandomizableParamIds()
         paramLFO3Depth,
         paramLFO4Rate,
         paramLFO4Depth,
-        paramEg1Delay,
-        paramEg1Attack,
-        paramEg1Release,
-        paramEg2Attack,
-        paramEg2Decay,
-        paramEg2Sustain,
-        paramEg2Release,
         paramEnv1Attack,
         paramEnv1Decay,
         paramEnv1Sustain,

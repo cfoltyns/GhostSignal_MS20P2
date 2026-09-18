@@ -40,7 +40,12 @@ void OscilloscopeDisplay::setCycles (float c)
 {
     // Clamped wide enough to represent every octave setting of the VCOs
     // (-2..+2 => 0.5..8 cycles) and the Sub (-3..+3 => 0.125..8 cycles).
-    cycles = juce::jlimit (0.125f, 10.0f, c);
+    const float clamped = juce::jlimit (0.125f, 10.0f, c);
+    if (clamped == cycles)
+        return;
+
+    cycles = clamped;
+    repaint();
 }
 
 void OscilloscopeDisplay::setActive (bool playing)

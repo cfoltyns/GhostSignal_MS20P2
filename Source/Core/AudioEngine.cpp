@@ -305,16 +305,5 @@ void AudioEngine::process(juce::AudioBuffer<float> &buffer,
   }
 }
 
-void AudioEngine::handleMidi(const juce::MidiBuffer &midi) {
-  // MIDI is now handled by SynthEngine::process
-}
-
-void AudioEngine::renderVoices(juce::AudioBuffer<float> &buffer,
-                               int numSamples) {
-  // Voice rendering is now handled by SynthEngine::process
-}
-
-void AudioEngine::applyMasterGain(juce::AudioBuffer<float> &buffer) {
-  const float masterGain = 0.8f;
-  buffer.applyGain(masterGain);
-}
+// MIDI processing and voice rendering are now handled by SynthEngine::process
+// applyMasterGain is applied inline from paramMasterVolume in AudioEngine::process

@@ -90,6 +90,9 @@ void WaveformKnob::clearTextValues()
 
 void WaveformKnob::setCenterText (const juce::String& text)
 {
+    if (text == centerText)
+        return;
+
     centerText = text;
     centerLabel.setText (text, juce::dontSendNotification);
     centerLabel.setVisible (text.isNotEmpty());
@@ -99,6 +102,9 @@ void WaveformKnob::setCenterText (const juce::String& text)
 
 void WaveformKnob::clearCenterText()
 {
+    if (centerText.isEmpty() && ! centerLabel.isVisible())
+        return;
+
     centerText = {};
     centerLabel.setText ({}, juce::dontSendNotification);
     centerLabel.setVisible (false);
@@ -108,7 +114,12 @@ void WaveformKnob::clearCenterText()
 
 void WaveformKnob::setPwmValue (double pwmValue)
 {
+    if (pwmValue == slider.getPwmValue())
+        return;
+
     slider.setPwmValue (pwmValue);
+    if (showWaveformIconGuarded())
+        repaint();
 }
 
 void WaveformKnob::updateCenterTextFromValue()

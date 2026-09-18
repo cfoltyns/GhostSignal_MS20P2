@@ -131,13 +131,24 @@ void LabeledKnob::clearSnapValues()
 
 void LabeledKnob::paint (juce::Graphics& g)
 {
+    // NOTE: this paints in LabeledKnob-local coordinates (the slider child is
+    // painted separately by JUCE). All geometry below is local on purpose —
+    // the previous version mixed slider.getBounds() (parent coordinates) into
+    // this paint, drawing up to 24 labels/ticks outside our own bounds. That
+    // kept unioning an ever-growing dirty region and pinned the message
+    // thread at ~60% CPU with the window stuck blank.
+    const float localW = (float) getWidth();
+    const float localH = (float) getHeight();
+    const int labelReserveH = juce::jmax (16, (int) (localH * labelHeightProportion));
+    const int knobAreaLocalH = (int) localH - labelReserveH - juce::jmax (2, (int) (localH * 0.04f));
+    const int knobLocal = juce::jmax (minKnobSize, juce::jmin ((int) localW, knobAreaLocalH));
+    const float centreX = localW * 0.5f;
+    const float centreY = (float) knobLocal * 0.5f;
+    const float radiusOuter = (float) knobLocal * 0.48f;
+    const float radiusInner = (float) knobLocal * 0.32f;
+
     if (showTextValues && numTextValues > 0)
     {
-        const juce::Rectangle<int> sliderBounds = slider.getBounds();
-        const float centreX = (float) sliderBounds.getCentreX();
-        const float centreY = (float) sliderBounds.getCentreY();
-        const float radiusOuter = (float) sliderBounds.getWidth() * 0.48f;
-        const float radiusInner = (float) sliderBounds.getWidth() * 0.32f;
 
         const float minV = (float) slider.getMinimum();
         const float maxV = (float) slider.getMaximum();
@@ -173,15 +184,25 @@ void LabeledKnob::paint (juce::Graphics& g)
             g.setColour (GhostSignalLookAndFeel::textSecondary.withAlpha (0.6f));
             g.drawLine (tickX1, tickY1, tickX2, tickY2, 1.2f);
 
-            // Position the label slightly outside the arc
-            const float textX = centreX + std::cos (angle) * labelRadius;
-            const float textY = centreY + std::sin (angle) * labelRadius;
+            // Position the label slightly outside the arc — clamped to our own
+            // bounds so text/ticks can never paint outside the component and
+            // force the parent to keep expanding its dirty region.
+            const float rawTextX = centreX + std::cos (angle) * labelRadius;
+            const float rawTextY = centreY + std::sin (angle) * labelRadius;
+            const float textX = juce::jlimit (0.0f, localW, rawTextX);
+            const float textY = juce::jlimit (0.0f, (float) knobAreaLocalH, rawTextY);
+
+            // Skip this tick+label entirely when its anchor is off-component:
+            // clamping alone would pile every off-screen label into one corner.
+            if (std::abs (textX - rawTextX) > 0.5f || std::abs (textY - rawTextY) > 0.5f)
+                continue;
+
+            const float pillX = juce::jlimit (0.0f, localW - (labelW + 2.0f), textX - labelW * 0.5f - 1.0f);
+            const float pillY = juce::jlimit (0.0f, (float) knobAreaLocalH - (labelH + 2.0f), textY - labelH * 0.5f - 1.0f);
 
             // Background pill for readability
             g.setColour (juce::Colour (0xBB000000));
-            g.fillRoundedRectangle (textX - labelW * 0.5f - 1.0f,
-                                    textY - labelH * 0.5f - 1.0f,
-                                    labelW + 2.0f, labelH + 2.0f, 3.0f);
+            g.fillRoundedRectangle (pillX, pillY, labelW + 2.0f, labelH + 2.0f, 3.0f);
 
             g.setColour (GhostSignalLookAndFeel::textPrimary);
             g.setFont (GhostSignalLookAndFeel::getMonospaceFont (labelFont, true));
@@ -193,19 +214,18 @@ void LabeledKnob::paint (juce::Graphics& g)
 
     // Draw accent LED indicator in the center of the knob (only if no center text —
     // the centre text itself is drawn by the centerLabel overlay, above the slider)
+    // Local coordinates (see note at the top of paint) — the LED sits at the
+    // centre of our own knob area.
     if (centerText.isEmpty() && ledActive)
     {
-        const juce::Rectangle<int> sliderBounds = slider.getBounds();
-        const float cx = (float) sliderBounds.getCentreX();
-        const float cy = (float) sliderBounds.getCentreY();
         const float ledRadius = 3.0f;
 
         g.setColour (GhostSignalLookAndFeel::accent);
-        g.fillEllipse (cx - ledRadius, cy - ledRadius, ledRadius * 2.0f, ledRadius * 2.0f);
+        g.fillEllipse (centreX - ledRadius, centreY - ledRadius, ledRadius * 2.0f, ledRadius * 2.0f);
 
         // Subtle glow
         g.setColour (GhostSignalLookAndFeel::accent.withAlpha (0.4f));
-        g.fillEllipse (cx - ledRadius * 2.0f, cy - ledRadius * 2.0f, ledRadius * 4.0f, ledRadius * 4.0f);
+        g.fillEllipse (centreX - ledRadius * 2.0f, centreY - ledRadius * 2.0f, ledRadius * 4.0f, ledRadius * 4.0f);
     }
 
     // Subtle travelling LED indicator for LFO modulation — a single tiny amber
@@ -318,6 +338,10 @@ void LabeledKnob::timerCallback()
     // Eased travel whose easing eases hardest when the distance is large, so
     // deep modulation still tracks the LFO closely while small corrections
     // glide — keeping the light organic instead of snapping frame to frame.
+    // Skip the repaint once settled so idle knobs don't repaint at 60 Hz.
+    if (std::abs (diff) < 0.0005f)
+        return;
+
     const float alpha = juce::jlimit (0.16f, 0.50f, std::abs (diff) * 2.4f);
     ledAngleCurrent += diff * alpha;
 
