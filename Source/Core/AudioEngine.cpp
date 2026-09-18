@@ -281,8 +281,8 @@ void AudioEngine::process(juce::AudioBuffer<float> &buffer,
 
   if (tapeEnabled)
   {
-      int timeMode = getChoice(Parameters::paramTapeDelayTimeMode);
-      float timeMs = getFloat(Parameters::paramTapeDelayTime);
+      const float rateNorm = getFloat(Parameters::paramTapeDelayRate);
+      const bool  tapeSync = (getFloat(Parameters::paramTapeDelaySync) > 0.5f);
       float feedback = getFloat(Parameters::paramTapeDelayFeedback);
       float mix = getFloat(Parameters::paramTapeDelayMix);
       float age = getFloat(Parameters::paramTapeDelayAge);
@@ -290,7 +290,26 @@ void AudioEngine::process(juce::AudioBuffer<float> &buffer,
       float wow = getFloat(Parameters::paramTapeDelayWow);
       float flutter = getFloat(Parameters::paramTapeDelayFlutter);
 
-      tapeDelay.setSyncMode(timeMode);
+      // Combined rate+sync, matching the LFO Rate knob behaviour: when SYNC is
+      // on the 0..1 rate maps to one of the 14 tempo divisions and the delay
+      // time is that division's length at the current tempo; when SYNC is off
+      // the whole 0..1 range is free-running ms, slow (left) → fast (right).
+      float timeMs;
+      float syncBeats;
+      if (tapeSync)
+      {
+          const int divIdx = Parameters::lfoSyncIndexForValue (rateNorm);
+          syncBeats = Parameters::lfoSyncDivisions()[(size_t) divIdx].beats;
+          timeMs = Parameters::tapeDelayMsForNorm (rateNorm); // unused while synced
+      }
+      else
+      {
+          syncBeats = 1.0f;
+          timeMs = Parameters::tapeDelayMsForNorm (rateNorm);
+      }
+
+      tapeDelay.setSyncOn(tapeSync);
+      tapeDelay.setSyncBeats(syncBeats);
       tapeDelay.setTimeMs(timeMs);
       tapeDelay.setFeedback(feedback);
       tapeDelay.setMix(mix);

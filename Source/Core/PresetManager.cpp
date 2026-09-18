@@ -171,7 +171,7 @@ void PresetManager::loadFactoryPresets()
                          { Parameters::paramAmpRelease, 0.48f },
                          { Parameters::paramMixerDrive, 0.48f },
                          { Parameters::paramTapeDelayEnable, 1.0f },
-                         { Parameters::paramTapeDelayTime, 380.0f },
+                         { Parameters::paramTapeDelayRate, 0.276f },   // ≈ 380 ms
                          { Parameters::paramTapeDelayFeedback, 0.62f } } });
     specs.push_back ({ "Arp Sequence",
                        "Monophonic sequence-ready patch with a rhythmic filter shape.",
@@ -193,7 +193,7 @@ void PresetManager::loadFactoryPresets()
                          { Parameters::paramAmpRelease, 0.12f },
                          { Parameters::paramMixerDrive, 0.28f },
                          { Parameters::paramTapeDelayEnable, 1.0f },
-                         { Parameters::paramTapeDelayTime, 250.0f },
+                         { Parameters::paramTapeDelayRate, 0.395f },   // ≈ 250 ms
                          { Parameters::paramTapeDelayFeedback, 0.34f } } });
     specs.push_back ({ "Sub Furnace",
         "Pure sine -2oct + sub, LPF 120Hz/0res, sustain 0.9. Deep sub.",
@@ -248,7 +248,7 @@ void PresetManager::loadFactoryPresets()
           { Parameters::paramGlideTime,0.12f },
           { Parameters::paramLPFCutoff,15000.0f },{ Parameters::paramLPFRes,0.15f },
           { Parameters::paramAmpAttack,0.005f },{ Parameters::paramAmpDecay,0.25f },{ Parameters::paramAmpSustain,0.78f },{ Parameters::paramAmpRelease,0.22f },
-          { Parameters::paramMixerDrive,0.18f },{ Parameters::paramTapeDelayEnable,1.0f },{ Parameters::paramTapeDelayTime,280.0f },{ Parameters::paramTapeDelayMix,0.30f } } });
+          { Parameters::paramMixerDrive,0.18f },{ Parameters::paramTapeDelayEnable,1.0f },{ Parameters::paramTapeDelayRate,0.363f },{ Parameters::paramTapeDelayMix,0.30f } } });
     specs.push_back ({ "Voltage Lead",
         "Mono tri+saw -5c, cutoff 2500Hz/res0.3, 15ms attack. Smooth.",
         PresetCategory::lead, { "smooth","analog","warm" },
@@ -377,7 +377,7 @@ void PresetManager::loadFactoryPresets()
           { Parameters::paramLPFCutoff,6000.0f },{ Parameters::paramLPFRes,0.20f },
           { Parameters::paramLFO1Rate,0.50f },{ Parameters::paramLFO1Depth,0.30f },{ Parameters::paramLFO1Dest,9.0f },
           { Parameters::paramAmpAttack,0.003f },{ Parameters::paramAmpDecay,0.15f },{ Parameters::paramAmpSustain,0.50f },{ Parameters::paramAmpRelease,0.06f },
-          { Parameters::paramTapeDelayTime,150.0f },{ Parameters::paramTapeDelayFeedback,0.30f },
+          { Parameters::paramTapeDelayRate,0.541f },{ Parameters::paramTapeDelayFeedback,0.30f },
           { Parameters::paramMixerDrive,0.15f },{ Parameters::paramTapeDelayEnable,1.0f } } });
     // SEQ
     specs.push_back ({ "Pulse Sequence",
@@ -389,7 +389,7 @@ void PresetManager::loadFactoryPresets()
           { Parameters::paramLPFCutoff,5000.0f },{ Parameters::paramLPFRes,0.25f },
           { Parameters::paramLFO1Rate,0.40f },{ Parameters::paramLFO1Depth,0.35f },{ Parameters::paramLFO1Dest,9.0f },
           { Parameters::paramAmpAttack,0.003f },{ Parameters::paramAmpDecay,0.12f },{ Parameters::paramAmpSustain,0.0f },{ Parameters::paramAmpRelease,0.05f },
-          { Parameters::paramTapeDelayTime,180.0f },{ Parameters::paramTapeDelayFeedback,0.30f },{ Parameters::paramTapeDelayMix,0.40f },
+          { Parameters::paramTapeDelayRate,0.489f },{ Parameters::paramTapeDelayFeedback,0.30f },{ Parameters::paramTapeDelayMix,0.40f },
           { Parameters::paramMixerDrive,0.10f },{ Parameters::paramTapeDelayEnable,1.0f } } });
     // PERCUSSION
     specs.push_back ({ "Analog Kick",
@@ -410,7 +410,7 @@ void PresetManager::loadFactoryPresets()
           { Parameters::paramOsc2Waveform,6.0f },{ Parameters::paramOsc2Gain,0.60f },
           { Parameters::paramLPFCutoff,4000.0f },{ Parameters::paramLPFRes,0.15f },
           { Parameters::paramAmpAttack,0.50f },{ Parameters::paramAmpDecay,0.60f },{ Parameters::paramAmpSustain,0.80f },{ Parameters::paramAmpRelease,1.5f },
-          { Parameters::paramTapeDelayTime,320.0f },{ Parameters::paramTapeDelayFeedback,0.30f },{ Parameters::paramTapeDelayMix,0.35f },
+          { Parameters::paramTapeDelayRate,0.325f },{ Parameters::paramTapeDelayFeedback,0.30f },{ Parameters::paramTapeDelayMix,0.35f },
           { Parameters::paramMixerDrive,0.08f },{ Parameters::paramTapeDelayEnable,1.0f } } });
     // MONO
     specs.push_back ({ "Mono Thunder",

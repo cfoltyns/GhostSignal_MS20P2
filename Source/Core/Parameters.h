@@ -177,6 +177,17 @@ public:
         return (float) (bpm / 60.0 * (1.0 / beats));
     }
 
+    // ── TAPE DELAY tempo-sync + free-time mapping ────────────────────────────
+    // The tape delay reuses the LFO tempo divisions. When SYNC is on, the Rate
+    // knob (0..1) selects one of the 14 divisions and the delay time is that
+    // division's length in beats at the current tempo. When SYNC is off, the
+    // Rate knob is free-running delay time, log-mapped slow → fast:
+    //   0.0 → 1000 ms (slowest, far left) … 1.0 → 30 ms (fastest, far right).
+    static inline float tapeDelayMsForNorm (float norm)
+    {
+        return 1000.0f * std::pow (30.0f / 1000.0f, juce::jlimit (0.0f, 1.0f, norm));
+    }
+
     // ── ENVELOPE 1 (old style ADSR - used by PluginEditor/AudioEngine) ────────
     inline static const juce::String paramEnv1Attack  { "env1_attack" };
     inline static const juce::String paramEnv1Decay   { "env1_decay" };
@@ -195,8 +206,8 @@ public:
 
     // ── TAPE DELAY ────────────────────────────────────────────────────────────
     inline static const juce::String paramTapeDelayEnable    { "tape_delay_enable" };
-    inline static const juce::String paramTapeDelayTimeMode  { "tape_delay_time_mode" };
-    inline static const juce::String paramTapeDelayTime      { "tape_delay_time" };
+    inline static const juce::String paramTapeDelaySync      { "tape_delay_sync" };
+    inline static const juce::String paramTapeDelayRate      { "tape_delay_rate" };
     inline static const juce::String paramTapeDelayFeedback  { "tape_delay_feedback" };
     inline static const juce::String paramTapeDelayMix       { "tape_delay_mix" };
     inline static const juce::String paramTapeDelayAge       { "tape_delay_age" };
@@ -219,9 +230,6 @@ public:
 
     // Noise color options
     static const juce::StringArray noiseTypeChoices;
-
-    // Tape delay time mode options (tempo sync divisions)
-    static const juce::StringArray tapeDelayTimeModeChoices;
 
     // List of parameter IDs that are "knobs" eligible for the Randomize feature.
     // (Excludes discrete choices like waveform/scale/voice mode, and master volume.)

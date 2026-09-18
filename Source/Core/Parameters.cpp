@@ -12,8 +12,6 @@ const juce::StringArray Parameters::lfoDestinationChoices = { "Off", "VCO1 Pitch
 
 const juce::StringArray Parameters::noiseTypeChoices = { "Brown", "Pink", "White", "Blue", "Violet" };
 
-const juce::StringArray Parameters::tapeDelayTimeModeChoices = { "1/2", "1/4", "1/8", "1/16", "1/32", "Slap", "MS" };
-
 juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createParameterLayout()
 {
     using namespace juce;
@@ -125,8 +123,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout Parameters::createParameterL
 
     // -- TAPE DELAY --
     addFloat  (paramTapeDelayEnable,    "Tape Delay Enable",    0.0f, 1.0f, 0.0f, 1.0f);
-    addChoice (paramTapeDelayTimeMode,  "Tape Time Mode",       Parameters::tapeDelayTimeModeChoices, 0);
-    addFloat  (paramTapeDelayTime,      "Tape Delay Time",      30.0f, 1000.0f, 300.0f, 0.001f, 0.5f);
+    addFloat  (paramTapeDelaySync,      "Tape Delay Sync",      0.0f, 1.0f, 0.0f, 1.0f);
+    addFloat  (paramTapeDelayRate,      "Tape Delay Rate",      0.0f, 1.0f, 0.6f, 0.001f, 0.5f);
     addFloat  (paramTapeDelayFeedback,  "Tape Delay Feedback",  0.0f, 0.95f, 0.5f);
     addFloat  (paramTapeDelayMix,       "Tape Delay Mix",       0.0f, 1.0f, 0.5f);
     addFloat  (paramTapeDelayAge,       "Tape Age",             0.0f, 1.0f, 0.5f);

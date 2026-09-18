@@ -114,8 +114,8 @@ public:
     // ── Parameter setters (thread-safe: set target, smoothing happens in process) ──
 
     void setTimeMs     (float ms)    { timeMs = juce::jlimit (30.0f, 1000.0f, ms); }
-    void setSyncMode   (int mode)    { syncMode = juce::jlimit (0, 6, mode); }
-    void setSlapTimeMs (float ms)    { slapTimeMs = juce::jlimit (50.0f, 120.0f, ms); }
+    void setSyncOn     (bool on)     { syncOn = on; }
+    void setSyncBeats  (float beats) { syncBeats = juce::jlimit (0.03125f, 8.0f, beats); }
     void setBPM        (float bpm)   { bpmVal = juce::jlimit (20.0f, 300.0f, bpm); }
     void setFeedback   (float f)     { feedback = juce::jlimit (0.0f, 0.95f, f); }
     void setMix        (float m)     { mix = juce::jlimit (0.0f, 1.0f, m); }
@@ -153,8 +153,8 @@ private:
 
     // ── Raw parameter values (set by host) ───────────────────
     float timeMs          { 300.0f };
-    int   syncMode        { 0 };   // 0=1/2, 1=1/4, 2=1/8, 3=1/16, 4=1/32, 5=Slap, 6=MS
-    float slapTimeMs      { 80.0f };
+    bool  syncOn          { false };
+    float syncBeats       { 1.0f };  // quarter-note multiples when synced
     float bpmVal          { 120.0f };
     float feedback        { 0.5f };
     float mix             { 0.5f };

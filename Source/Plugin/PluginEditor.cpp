@@ -351,25 +351,28 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     // ── TAPE DELAY ────────────────────────────────────────────────────────────
     addAndMakeVisible (tapeDelayPanel);
 
-    // Time-mode selector as a knob (same pattern as the noise-type knob):
-    // a discrete selector stepping through the modes, with the selected mode
-    // name shown in the centre of the knob.
-    tapeDelayMode.getSlider().setRange (0.0, (double) Parameters::tapeDelayTimeModeChoices.size() - 1.0, 1.0);
-    updateTapeTimeModeCenterText();
-    tapeDelayMode.getSlider().onValueChange = [this]
-    {
-        updateTapeTimeModeCenterText();
-        updateTimeKnobVisibility();
-    };
-    addAndMakeVisible (tapeDelayMode);
+    // Rate knob — combined free-ms / tempo-division control (the SYNC toggle
+    // decides the meaning, exactly like the LFO Rate knobs).
+    addAndMakeVisible (tapeDelayRate);
 
-    addAndMakeVisible (tapeDelayTime);
     addAndMakeVisible (tapeDelayFeedback);
     addAndMakeVisible (tapeDelayMix);
     addAndMakeVisible (tapeDelayAge);
     addAndMakeVisible (tapeDelaySat);
     addAndMakeVisible (tapeDelayWow);
     addAndMakeVisible (tapeDelayFlutter);
+
+    // ── TAPE DELAY SYNC TOGGLE (same style as the LFO sync toggles) ───────────
+    addAndMakeVisible (tapeDelaySync);
+    tapeDelaySync.setButtonText ("SYNC");
+    tapeDelaySync.setClickingTogglesState (true);
+    tapeDelaySync.setLookAndFeel (&lnf);
+    tapeDelaySync.setColour (juce::TextButton::buttonColourId, GhostSignalLookAndFeel::knobBody);
+    tapeDelaySync.setColour (juce::TextButton::buttonOnColourId, GhostSignalLookAndFeel::accent);
+    tapeDelaySync.setColour (juce::TextButton::textColourOffId, GhostSignalLookAndFeel::textSecondary);
+    tapeDelaySync.setColour (juce::TextButton::textColourOnId, juce::Colours::white);
+    tapeDelaySync.setAlpha (0.85f);
+    tapeDelaySync.onClick = [this] { applyTapeSyncMode(); };
 
     // ── TAPE DELAY ON/OFF SWITCH (labeled toggle showing the state) ───────────
     addAndMakeVisible (tapeDelayOnOff);
@@ -472,9 +475,7 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     glideTimeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramGlideTime,    glideTime.getSlider());
     voiceModeAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, Parameters::paramVoiceMode,    voiceModeBox);
     tapeDelayEnableAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, Parameters::paramTapeDelayEnable, tapeDelayOnOff);
-    tapeDelayTimeModeAttachment =
-        std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayTimeMode, tapeDelayMode.getSlider());
-    tapeDelayTimeAttachment     = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayTime, tapeDelayTime.getSlider());
+    tapeDelayRateAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayRate, tapeDelayRate.getSlider());
     tapeDelayFeedbackAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayFeedback, tapeDelayFeedback.getSlider());
     tapeDelayMixAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayMix, tapeDelayMix.getSlider());
     tapeDelayAgeAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(apvts, Parameters::paramTapeDelayAge, tapeDelayAge.getSlider());
@@ -512,7 +513,18 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     // restored patch, not a user interaction this session).
     osc1PwModeShown = osc1PulseWidth.isVisible();
     osc2PwModeShown = osc2PulseWidth.isVisible();
-    updateTimeKnobVisibility();
+
+    // ── Initialise the tape delay sync toggle from its persisted param ────────
+    {
+        const bool wasSync = (apvts.getRawParameterValue (Parameters::paramTapeDelaySync)
+                              && apvts.getRawParameterValue (Parameters::paramTapeDelaySync)->load() > 0.5f);
+        tapeDelaySync.setToggleState (wasSync, juce::dontSendNotification);
+
+        // Keep the division / ms label current while the rate knob is dragged
+        tapeDelayRate.getSlider().onValueChange = [this] { refreshTapeRateLabel(); };
+
+        applyTapeSyncMode();
+    }
 
     // ── Octave knobs snap to whole octave steps ──────────────────────────────
     osc1Octave.setSnapToValues (octaveSnapOsc1, 5);
@@ -590,7 +602,7 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     setKnobSensitivity (ampGain.getSlider());
     setKnobSensitivity (pan.getSlider());
     setKnobSensitivity (glideTime.getSlider());
-    setKnobSensitivity (tapeDelayTime.getSlider());
+    setKnobSensitivity (tapeDelayRate.getSlider());
     setKnobSensitivity (tapeDelayFeedback.getSlider());
     setKnobSensitivity (tapeDelayMix.getSlider());
     setKnobSensitivity (tapeDelayAge.getSlider());
@@ -608,9 +620,9 @@ PluginEditor::PluginEditor (PluginProcessor& p)
     osc1Tune.setCentreValueFormatter (fmtCentitones);
     osc2Tune.setCentreValueFormatter (fmtCentitones);
 
-    // Tape delay: ms for time, % for feedback/age/sat/wow/flutter, and a
-    // plain 0..100 number (no unit) for mix.
-    tapeDelayTime.setCentreValueFormatter (fmtMilliseconds);
+    // Tape delay: % for feedback/age/sat/wow/flutter and a plain 0..100
+    // number (no unit) for mix. The Rate knob centre is a text overlay
+    // (division label or ms) managed by refreshTapeRateLabel().
     tapeDelayFeedback.setCentreValueFormatter (fmtPercentage);
     tapeDelayMix.setCentreValueFormatter (fmtPercentageNoUnit);
     tapeDelayAge.setCentreValueFormatter (fmtPercentage);
@@ -718,11 +730,13 @@ void PluginEditor::resized()
     {
         // Compact, tall panel: it reads as a command palette rather than a
         // window. The minimum width keeps the action row (six bare labels plus
-        // their gaps and padding) on a single line.
+        // their gaps and padding) on a single line. Anchored to the RIGHT edge
+        // of the window so it pops up beside the header controls.
         const int browserW = juce::jmin (460, w - 2 * margin);
         const int browserH = juce::jmin (440, h - (margin + headerH + margin) - margin);
-        presetBrowser->setBounds (margin, margin + headerH + margin,
-                                  juce::jmax (400, browserW), juce::jmax (300, browserH));
+        const int useW = juce::jmax (400, browserW);
+        presetBrowser->setBounds (w - margin - useW, margin + headerH + margin,
+                                  useW, juce::jmax (300, browserH));
     }
 
     const int statusW = juce::jmin (360, w - 2 * margin);
@@ -1402,18 +1416,52 @@ void PluginEditor::layoutRow2 (int x, int y, int totalW, int totalH,
         const R botRow (curX + padH, y + knobAreaTop + knobRowH + gap,
                         tapeW - 2 * padH, knobRowH);
 
-        // Top row: Mode, Feedback and Mix knobs share the full width
-        placeKnobRow ({ &tapeDelayMode, &tapeDelayFeedback, &tapeDelayMix },
-                      topRow, smallKnobD);
-        placeKnobRow ({ &tapeDelayTime, &tapeDelayAge, &tapeDelaySat, &tapeDelayWow, &tapeDelayFlutter }, botRow, smallKnobD);
+        // Top row: Rate | SYNC | FB | Mix — one evenly spaced line. The SYNC
+        // toggle sits directly beside the Rate knob (like the LFO panels) and
+        // Feedback / Mix each get their own slot, so nothing is cramped.
+        // The knobs shrink just enough that all four fit with equal gaps.
+        const int syncBtnW = juce::jmax (36, (int) (lfoW * 0.24f));
+        const int syncBtnH = juce::jmax (16, (int) (totalH * 0.10f));
+        const int minGap   = juce::jmax (4, gap);
 
-        // Tape delay on/off button — labeled toggle positioned in the
-        // title bar area, right-aligned
-        const int btnW = juce::jmin (tapeW, juce::jmax (56, (int) (tapeW * 0.18f)));
-        const int btnH = juce::jlimit (20, 30, (int) (titleH * 0.8f));
-        tapeDelayOnOff.setBounds (tapeBounds.getRight() - btnW - padH,
-                                  y + (titleH - btnH) / 2,
-                                  btnW, btnH);
+        // Try the full knob size first; if there isn't room for everything,
+        // shrink the knobs so the row fits with at least minGap between items.
+        int topS    = knobRowH;
+        int topGap  = (topRow.getWidth() - syncBtnW - 3 * topS) / 3;
+        if (topGap < minGap)
+        {
+            topS   = juce::jmax (66, juce::jmin (knobRowH,
+                                 (topRow.getWidth() - syncBtnW - 3 * minGap) / 3));
+            topGap = minGap;
+        }
+
+        // Knob cells are square and vertically centred in the row, so the
+        // knob centres and the SYNC button all line up on the same axis.
+        const int topY = topRow.getY() + (knobRowH - topS) / 2;
+
+        const R rateCell (topRow.getX(), topY, topS, topS);
+        const R syncCell (rateCell.getRight() + topGap, topRow.getY(),
+                          syncBtnW, knobRowH);
+        const R fbCell   (syncCell.getRight() + topGap, topY, topS, topS);
+        const R mixCell  (fbCell.getRight() + topGap, topY, topS, topS);
+
+        placeKnobRow ({ &tapeDelayRate },     rateCell, topS);
+        placeKnobRow ({ &tapeDelayFeedback }, fbCell,   topS);
+        placeKnobRow ({ &tapeDelayMix },      mixCell,  topS);
+        placeKnobRow ({ &tapeDelayAge, &tapeDelaySat, &tapeDelayWow, &tapeDelayFlutter }, botRow, smallKnobD);
+
+        // SYNC toggle — same size as the LFO sync toggles, vertically centred
+        // in the row directly to the right of the Rate knob
+        tapeDelaySync.setBounds (syncCell.getX(),
+                                 topRow.getY() + (knobRowH - syncBtnH) / 2,
+                                 syncBtnW, syncBtnH);
+
+        // ON/OFF toggle — stays in the title bar, right-aligned, but smaller
+        const int onOffW = juce::jmax (28, (int) (lfoW * 0.16f));
+        const int onOffH = juce::jmax (14, (int) (totalH * 0.055f));
+        tapeDelayOnOff.setBounds (tapeBounds.getRight() - onOffW - padH,
+                                  y + (titleH - onOffH) / 2,
+                                  onOffW, onOffH);
     }
 
     curX += tapeW + gap;
@@ -1571,30 +1619,64 @@ void PluginEditor::syncEnvDisplays()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// updateTimeKnobVisibility()
+// applyTapeSyncMode() — enforce the tape delay SYNC toggle
 // ─────────────────────────────────────────────────────────────────────────────
 
-void PluginEditor::updateTimeKnobVisibility()
+void PluginEditor::applyTapeSyncMode()
 {
-    // Show the Time knob only in MS mode ("MS" is the 7th choice, i.e. index 6)
-    tapeDelayTime.setVisible ((int) tapeDelayMode.getSlider().getValue() == 6);
+    auto& apvts = audioProcessor.getAPVTS();
+    juce::Slider& slider = tapeDelayRate.getSlider();
+
+    const bool syncOn = tapeDelaySync.getToggleState();
+
+    // Persist the sync mode as a real parameter.
+    if (auto* p = apvts.getParameter (Parameters::paramTapeDelaySync))
+        p->setValueNotifyingHost (syncOn ? 1.0f : 0.0f);
+
+    if (syncOn)
+    {
+        // Enter tempo sync: preserve the knob's current position by mapping it
+        // to the nearest of the 14 divisions across the full 0..1 range.
+        const float cur = (float) slider.getValue();
+        const int idx = Parameters::lfoSyncIndexForValue (cur);
+        const float snapped = Parameters::lfoSyncParamValue (idx);
+
+        slider.setRange (0.0, 1.0, 0.001);
+        tapeDelayRate.setSnapValuesOnly (lfoSyncSnapValues(), Parameters::lfoSyncDivisionCount);
+        tapeDelayRate.clearTextValues(); // no room around the knob — only show the selection in the centre
+        slider.setValue (snapped, juce::sendNotificationSync);
+        tapeDelayRate.setCenterText (Parameters::lfoSyncLabel (idx));
+    }
+    else
+    {
+        // Exit tempo sync: the whole 0..1 range now maps to free-running ms,
+        // slow (far left) → fast (far right).
+        slider.setRange (0.0, 1.0, 0.001);
+        tapeDelayRate.clearSnapValues();
+        tapeDelayRate.clearTextValues();
+        refreshTapeRateLabel();
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// updateTapeTimeModeCenterText() — show the selected tape time mode in the
-// centre of the mode knob (same pattern as the noise-type knob).
+// refreshTapeRateLabel() — show the current tempo division (sync ON) or the
+// free-running delay time in ms (sync OFF) in the tape delay Rate knob
 // ─────────────────────────────────────────────────────────────────────────────
 
-void PluginEditor::updateTapeTimeModeCenterText()
+void PluginEditor::refreshTapeRateLabel()
 {
-    const int numModes = Parameters::tapeDelayTimeModeChoices.size();
-    const int idx = juce::jlimit (0, numModes - 1,
-                                  (int) (tapeDelayMode.getSlider().getValue() + 0.5f));
-    if (idx == lastTapeTimeModeIndex)
-        return;
-
-    lastTapeTimeModeIndex = idx;
-    tapeDelayMode.setCenterText (Parameters::tapeDelayTimeModeChoices[idx]);
+    if (tapeDelaySync.getToggleState())
+    {
+        // Sync ON — show the nearest tempo division in the knob centre.
+        tapeDelayRate.setCenterText (Parameters::lfoSyncLabel (
+            Parameters::lfoSyncIndexForValue ((float) tapeDelayRate.getSlider().getValue())));
+    }
+    else
+    {
+        // Sync OFF — MS timed: slow on the left, fast on the right.
+        tapeDelayRate.setCenterText (lfoRateMsLabel (
+            Parameters::tapeDelayMsForNorm ((float) tapeDelayRate.getSlider().getValue())));
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1874,9 +1956,8 @@ void PluginEditor::timerCallback()
     }
 
     updatePulseWidthVisibility();
-    updateTimeKnobVisibility();
     updateNoiseTypeCenterText();
-    updateTapeTimeModeCenterText();
+    refreshTapeRateLabel();
 
     auto& apvts = audioProcessor.getAPVTS();
     const bool tapeEnabled = (apvts.getRawParameterValue (Parameters::paramTapeDelayEnable) != nullptr)
@@ -2071,7 +2152,7 @@ void PluginEditor::timerCallback()
     setKnobLed (ampGain,        Parameters::paramAmpGain, 0.7f);
     setKnobLed (pan,            Parameters::paramPan, 0.5f);
     setKnobLed (glideTime,      Parameters::paramGlideTime, 0.0f);
-    setKnobLed (tapeDelayTime,     Parameters::paramTapeDelayTime, 300.0f);
+    setKnobLed (tapeDelayRate,     Parameters::paramTapeDelayRate, 0.6f);
     setKnobLed (tapeDelayFeedback, Parameters::paramTapeDelayFeedback, 0.5f);
     setKnobLed (tapeDelayMix,      Parameters::paramTapeDelayMix, 0.5f);
     setKnobLed (tapeDelayAge,      Parameters::paramTapeDelayAge, 0.5f);

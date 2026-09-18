@@ -232,20 +232,12 @@ void TapeDelay::reset()
 
 float TapeDelay::calculateTargetDelayMs() const
 {
-    // Sync modes: 0=1/2, 1=1/4, 2=1/8, 3=1/16, 4=1/32, 5=Slap, 6=MS
-    const float quarterNoteMs = 60000.0f / bpmVal;
+    // Sync ON: the delay time is the selected tempo division (in beats).
+    // Sync OFF: free-running time in ms from the Rate knob (slow left, fast right).
+    if (syncOn)
+        return (60000.0f / bpmVal) * syncBeats;
 
-    switch (syncMode)
-    {
-        case 0: return quarterNoteMs * 2.0f;  // 1/2 note
-        case 1: return quarterNoteMs;          // 1/4 note
-        case 2: return quarterNoteMs * 0.5f;   // 1/8 note
-        case 3: return quarterNoteMs * 0.25f;  // 1/16 note
-        case 4: return quarterNoteMs * 0.125f; // 1/32 note
-        case 5: return slapTimeMs;             // Slap (50-120ms fixed)
-        case 6: return timeMs;                 // MS mode (use time knob)
-        default: return timeMs;
-    }
+    return timeMs;
 }
 
 void TapeDelay::updateBPMFromPlayHead()

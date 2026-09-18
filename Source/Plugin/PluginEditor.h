@@ -66,11 +66,14 @@ private:
     // Update pulse width visibility based on waveform selection
     void updatePulseWidthVisibility();
 
-    // Update tape delay time knob visibility based on time mode
-    void updateTimeKnobVisibility();
+    // Apply the tape delay SYNC toggle state: sync ON snaps the Rate knob to
+    // the 14 tempo divisions, sync OFF maps it to free-running ms
+    // (slow at the far left, fast at the far right).
+    void applyTapeSyncMode();
 
-    // Show the selected tape time mode in the centre of the mode knob
-    void updateTapeTimeModeCenterText();
+    // Update the tape delay Rate knob's centre label: tempo division when
+    // synced, current ms time when free-running.
+    void refreshTapeRateLabel();
 
     // Show the selected noise colour in the centre of the noise type knob
     void updateNoiseTypeCenterText();
@@ -122,10 +125,6 @@ private:
 
     // Last noise type index shown in the knob centre (avoids redundant repaints)
     int lastNoiseTypeIndex = -1;
-
-    // Last tape time-mode index shown in the mode knob centre (avoids
-    // redundant repaints)
-    int lastTapeTimeModeIndex = -1;
 
     Panel          osc1Panel     { "VCO1" };
     juce::ComboBox osc1Waveform;
@@ -236,10 +235,9 @@ private:
 
     // ── TAPE DELAY ───────────────────────────────────────────────────────────
     Panel          tapeDelayPanel { "TAPE DELAY" };
-    // Time-mode selector as a knob (same pattern as the noise-type knob):
-    // the selected mode name is shown in the centre of the knob.
-    LabeledKnob    tapeDelayMode { "Mode" };
-    LabeledKnob    tapeDelayTime     { "Time" };
+    // Rate knob — combined free-ms / tempo-division control, same behaviour
+    // as the LFO Rate knobs (the SYNC toggle decides what the knob means).
+    LabeledKnob    tapeDelayRate     { "Rate" };
     LabeledKnob    tapeDelayFeedback { "FB" };
     LabeledKnob    tapeDelayMix      { "Mix" };
     LabeledKnob    tapeDelayAge      { "Age" };
@@ -247,9 +245,12 @@ private:
     LabeledKnob    tapeDelayWow      { "Wow" };
     LabeledKnob    tapeDelayFlutter  { "Flut" };
 
-    // ── TAPE DELAY ON/OFF SWITCH ─────────────────────────────────────────────
-    // Toggle switch showing the tape delay state as ON / OFF text.
+    // ── TAPE DELAY ON/OFF + SYNC SWITCHES ────────────────────────────────────
+    // ON/OFF toggle showing the tape delay state as ON / OFF text, plus a
+    // SYNC toggle (same style as the LFO sync toggles) that switches the
+    // Rate knob between free-running ms and DAW tempo divisions.
     juce::TextButton tapeDelayOnOff { "OFF" };
+    juce::TextButton tapeDelaySync  { "SYNC" };
 
     // ── RANDOMIZE BUTTON (lockable) ───────────────────────────────────────────
     juce::TextButton randomizeButton { "RANDOMIZE" };
@@ -332,8 +333,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   glideTimeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> voiceModeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>   tapeDelayEnableAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayTimeModeAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayTimeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayRateAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayFeedbackAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayMixAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>   tapeDelayAgeAttachment;
