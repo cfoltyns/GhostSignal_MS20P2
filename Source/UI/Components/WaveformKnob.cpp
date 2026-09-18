@@ -106,6 +106,11 @@ void WaveformKnob::clearCenterText()
     repaint();
 }
 
+void WaveformKnob::setPwmValue (double pwmValue)
+{
+    slider.setPwmValue (pwmValue);
+}
+
 void WaveformKnob::updateCenterTextFromValue()
 {
     if (showTextValues && numTextValues > 0)
@@ -286,13 +291,14 @@ void WaveformKnob::WaveformSlider::paint (juce::Graphics& g)
         juce::Rectangle<float> iconArea (cx - radius * 0.35f, cy - radius * 0.35f,
                                          radius * 0.70f, radius * 0.70f);
         const int waveIndex = getWaveformIndexFromValue (getValue());
-        drawWaveformIcon (g, iconArea, waveIndex);
+        drawWaveformIcon (g, iconArea, waveIndex, pwmValue);
     }
 }
 
 void WaveformKnob::WaveformSlider::drawWaveformIcon (juce::Graphics& g,
                                                      juce::Rectangle<float> area,
-                                                     int waveIndex) const
+                                                     int waveIndex,
+                                                     double pwmValue) const
 {
     g.setColour (GhostSignalLookAndFeel::textPrimary);
 
@@ -345,7 +351,7 @@ void WaveformKnob::WaveformSlider::drawWaveformIcon (juce::Graphics& g,
         }
         case 3: // Pulse
         {
-            const float duty = 0.3f;
+            const float duty = juce::jlimit (0.05f, 0.95f, static_cast<float> (pwmValue));
             const float pulseW = (x1 - x0) * duty;
             p.startNewSubPath (x0, midY + amp);
             p.lineTo (x0 + pulseW, midY + amp);

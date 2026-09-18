@@ -1960,6 +1960,9 @@ void PluginEditor::timerCallback()
     syncScope (osc1Scope, Parameters::paramOsc1Waveform, pw1Base, Parameters::paramOsc1Octave, 2.0f);
     syncScope (osc2Scope, Parameters::paramOsc2Waveform, pw2Base, Parameters::paramOsc2Octave, 2.0f);
 
+    osc1Waveform.setPwmValue (pw1Base);
+    osc2Waveform.setPwmValue (pw2Base);
+
     // ── LFO modulation LEDs ─────────────────────────────────────────────────────
     // Every knob/feature an LFO is routed to gets a tiny travelling amber LED
     // that follows the LFO's movement. Destination indices come from

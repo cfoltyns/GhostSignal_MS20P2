@@ -42,6 +42,9 @@ public:
     // Show/hide the waveform icon in the center (when true, draws icon instead of text)
     void setShowWaveformIcon (bool show);
 
+    // Set the PWM value (0..1) for the Pulse waveform icon drawing
+    void setPwmValue (double pwmValue);
+
     // Animated LFO modulation ring — draws a colored ring around the knob that
     // pulses with the LFO movement. normValue: -1..1 (bipolar LFO output).
     void setModulationRing (float normValue, bool show, juce::Colour color = juce::Colour (0xFF5C6B5E))
@@ -67,7 +70,7 @@ private:
         ~WaveformSlider() override = default;
 
         void paint (juce::Graphics& g) override;
-        void drawWaveformIcon (juce::Graphics& g, juce::Rectangle<float> area, int waveIndex) const;
+        void drawWaveformIcon (juce::Graphics& g, juce::Rectangle<float> area, int waveIndex, double pwmValue) const;
 
         using CentreValueFormatter = std::function<juce::String (double)>;
 
@@ -78,6 +81,8 @@ private:
         }
 
         void setShowWaveformIcon (bool show) { showWaveformIcon = show; }
+
+        void setPwmValue (double value) { pwmValue = value; }
 
         juce::String getTextFromValue (double value) override
         {
@@ -90,6 +95,7 @@ private:
     private:
         CentreValueFormatter centreValueFormatter;
         bool showWaveformIcon { false };
+        double pwmValue { 0.5 };
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WaveformSlider)
     };
 
