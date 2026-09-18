@@ -58,9 +58,13 @@ jobs:
             libx11-dev \
             libxext-dev \
             libxrender-dev \
-            libfreetype6-dev \
+            libxrandr-dev \
             libxinerama-dev \
             libxcursor-dev \
+            libfreetype6-dev \
+            libfontconfig1-dev \
+            libgl-dev \
+            libegl-dev \
             libcurl4-openssl-dev \
             rpm \
             pkg-config
