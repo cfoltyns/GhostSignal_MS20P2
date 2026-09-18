@@ -11,6 +11,7 @@
 #include <JuceHeader.h>
 #include "Parameters.h"
 #include "AudioEngine.h"
+#include "PresetManager.h"
 
 class PluginProcessor  : public juce::AudioProcessor
 #if JucePlugin_Enable_ARA
@@ -44,9 +45,11 @@ public:
 
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
     AudioEngine& getEngine() { return engine; }
+    PresetManager& getPresetManager() { return presetManager; }
 
 private:
     juce::AudioProcessorValueTreeState apvts;
+    PresetManager presetManager;
     AudioEngine engine;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)

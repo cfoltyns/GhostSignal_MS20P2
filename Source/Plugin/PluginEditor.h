@@ -25,6 +25,7 @@
 #include "../UI/Components/EnvDisplay.h"
 #include "../UI/Components/LfoDisplay.h"
 #include "../UI/Components/OscilloscopeDisplay.h"
+#include "../UI/Components/PresetBrowser.h"
 
 class PluginEditor  : public juce::AudioProcessorEditor,
                       private juce::Timer
@@ -39,7 +40,7 @@ public:
 
 private:
     // ── Layout helpers ────────────────────────────────────────────────────────
-    void layoutHeaderBar (int margin, int headerH, int largeKnobD);
+    void layoutHeaderBar (int margin, int headerH);
     void layoutRow1 (int x, int y, int totalW, int totalH,
                      int knobD, int smallKnobD, int largeKnobD);
     void layoutEnvelopeRow (int x, int y, int totalW, int totalH, int mediumKnobD);
@@ -106,6 +107,12 @@ private:
 
     // ── Header ────────────────────────────────────────────────────────────────
     LogoComponent logoComponent;
+    juce::TextButton savePatchButton { "SAVE PATCH" };
+    juce::TextButton presetsButton { "PRESETS" };
+    juce::Label currentPresetLabel { juce::String(), "PATCH: UNTITLED PATCH" };
+    juce::Label statusLabel { juce::String(), juce::String() };
+    std::unique_ptr<PresetBrowserPanel> presetBrowser;
+    bool presetDialogOpen { false };
 
     // ── OSC 1 ─────────────────────────────────────────────────────────────────
     // Last laid-out PW visibility per oscillator — used to detect when the
@@ -248,9 +255,31 @@ private:
     juce::TextButton randomizeButton { "RANDOMIZE" };
     bool randomizeLocked { true };
     int randomizeFlashCount { 0 };
+    int statusTimerCountdown { 0 };
+    bool statusSuccess { false };
     void updateRandomizeButtonAppearance();
     void toggleRandomizeLock();
     void triggerRandomize();
+
+    // ── Preset management ─────────────────────────────────────────────────────
+    void showPresetBrowser();
+    void hidePresetBrowser();
+    void refreshPresetBrowser();
+    void updateCurrentPresetLabel();
+    void showSavePresetDialog (int overwriteIndex = -1);
+    void showRenamePresetDialog (int index);
+    void showPresetFieldsDialog (const juce::String& title,
+                                 const juce::String& message,
+                                 const juce::String& initialName,
+                                 const juce::String& initialDescription,
+                                 const juce::StringArray& initialTags,
+                                 std::function<bool (const juce::String&,
+                                                    const juce::String&,
+                                                    const juce::StringArray&,
+                                                    juce::String&)> submit);
+    void confirmDeletePreset (int index);
+    void showPresetStatus (const juce::String& message, bool success);
+    void mouseDown (const juce::MouseEvent& event) override;
 
     // ── Parameter attachments ─────────────────────────────────────────────────
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> osc1WaveAttachment;

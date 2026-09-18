@@ -15,6 +15,28 @@
 
 using namespace juce;
 
+// ─── Minimal typeface selector for the preset-mono UI ────────────────────────
+namespace
+{
+    static juce::String findMonospaceTypefaceName()
+    {
+        const auto available = juce::Font::findAllTypefaceNames();
+        const char* candidates[] =
+        {
+            "JetBrains Mono", "Cascadia Mono", "Cascadia Code", "Consolas",
+            "DejaVu Sans Mono", "Liberation Mono", "Menlo", "Monaco",
+            "Lucida Console", "Courier New"
+        };
+
+        for (const auto* candidate : candidates)
+        {
+            if (available.contains (candidate, true))
+                return candidate;
+        }
+        return juce::String();
+    }
+}
+
 // ─── Colour palette ──────────────────────────────────────────────────────────
 
 const Colour GhostSignalLookAndFeel::bg           { Colour (0xFF0A0A0C) };
@@ -349,6 +371,32 @@ juce::Font GhostSignalLookAndFeel::getKnobLabelFont (int knobDiameter)
     return Font (FontOptions (getKnobFontSize (knobDiameter), Font::bold));
 }
 
+// ─── Monospace font (preset / modal UI) ───────────────────────────
+// The preset browser and save/rename dialog are deliberately rendered as
+// a terminal surface, so their chrome uses a monospace face rather than
+// the industrial headings used elsewhere in the plugin. The size is
+// clamped to the 9–11 px band so a single, readable face is used
+// everywhere — even when a caller passes a larger value.
+
+juce::Font GhostSignalLookAndFeel::getMonospaceFont (float size, bool bold)
+{
+    const float clamped = jlimit (9.0f, 11.0f, size);
+    const int flags = bold ? Font::bold : Font::plain;
+
+    static const juce::String typeface = findMonospaceTypefaceName();
+
+    if (typeface.isNotEmpty())
+        return Font (FontOptions (typeface, clamped, flags));
+
+    return Font (FontOptions (clamped, flags));
+}
+
+juce::Font GhostSignalLookAndFeel::getMonoLabelFont (float scale, bool bold)
+{
+    return getMonospaceFont (11.0f * scale, bold);
+}
+
+
 // ─── Panel grain tile ─────────────────────────────────────────────────────────
 // A 128 x 128 ARGB tile of very low-alpha speckle: half the pixels are a touch
 // darker than the panel colour, half a touch lighter. Drawn once and tiled by
@@ -575,18 +623,16 @@ void GhostSignalLookAndFeel::drawRotarySlider (Graphics& g,
 
         if (centreText.isNotEmpty())
         {
-            float fontSize = jlimit (7.0f, 11.0f, capR * 1.4f);
             g.setColour (textPrimary);
-            g.setFont (Font (FontOptions (fontSize, Font::bold)));
+            g.setFont (GhostSignalLookAndFeel::getMonospaceFont (capR * 1.4f, true));
 
             // Shrink the font so multi-digit values (e.g. "100") still fit
             // inside the centre cap instead of being clipped.
             const float maxTextW = capR * 3.0f;
-            while (fontSize > 6.0f
-                   && GlyphArrangement::getStringWidth (g.getCurrentFont(), centreText) > maxTextW)
+            while (GlyphArrangement::getStringWidth (g.getCurrentFont(), centreText) > maxTextW)
             {
-                fontSize -= 0.5f;
-                g.setFont (Font (FontOptions (fontSize, Font::bold)));
+                const float smaller = jlimit (6.0f, 11.0f, g.getCurrentFont().getHeightInPoints() - 0.5f);
+                g.setFont (GhostSignalLookAndFeel::getMonospaceFont (smaller, true));
             }
 
             // Printed into the flat top face: a soft dark pass offset away from

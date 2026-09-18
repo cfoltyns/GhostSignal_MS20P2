@@ -19,7 +19,7 @@ Panel::Panel (const juce::String& panelTitle)
     title.setJustificationType (juce::Justification::centred);
     title.setColour (juce::Label::textColourId, juce::Colours::white);
     title.setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
-    title.setFont (GhostSignalLookAndFeel::getSectionTitleFont (28));
+    title.setFont (GhostSignalLookAndFeel::getMonospaceFont (10.0f, true));
 
     addAndMakeVisible (title);
 }

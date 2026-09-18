@@ -113,7 +113,18 @@ public:
     static juce::Font getSectionTitleFont (int panelHeight);
     static juce::Font getParamLabelFont (int widgetHeight);
     static juce::Font getValueFont (int widgetHeight);
-    static juce::Font getKnobLabelFont (int knobDiameter);
+        static juce::Font getKnobLabelFont (int knobDiameter);
+
+    // ─── Monospace overrides (preset / modal UI) ────────────────────────────────
+    /** Returns a monospace font whose size is clamped to the 9–11 px band so a
+        single, readable face is used across the preset browser, save/rename dialog
+        and slider popups. Preference order: JetBrains Mono → Cascadia Mono →
+        Cascadia Code → Consolas → DejaVu Sans Mono → Liberation Mono → Menlo →
+        Monaco → Lucida Console → Courier New. */
+    static juce::Font getMonospaceFont (float size, bool bold = false);
+
+    /** Convenience that clamps to the 9–11 px band, then multiplies. */
+    static juce::Font getMonoLabelFont (float scale = 1.0f, bool bold = false);
 
     // ─── Texture helpers ───────────────────────────────────────────────────────
     // Cached, deterministic grain tile used to give panel bodies a faint

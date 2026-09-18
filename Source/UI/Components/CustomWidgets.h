@@ -10,6 +10,7 @@
 
 #include <JuceHeader.h>
 #include "../../Core/Sequencer.h"
+#include "../LookAndFeel.h"
 
 // XY Pad for macros or modulation control
 class XYPad : public juce::Component
@@ -221,7 +222,7 @@ public:
                 if (s.note >= 0)
                 {
                     g.setColour (juce::Colours::white.withAlpha (0.7f));
-                    g.setFont (10.0f);
+                    g.setFont (GhostSignalLookAndFeel::getMonospaceFont (10.0f, false));
                     g.drawText (juce::String (s.note), (int) x, (int) bounds.getY(),
                                 (int) stepW - 1, (int) h, juce::Justification::centred);
                 }

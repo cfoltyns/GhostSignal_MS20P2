@@ -12,6 +12,8 @@
 PluginProcessor::PluginProcessor()
     : apvts (*this, nullptr, juce::Identifier ("Parameters"), Parameters::createParameterLayout())
 {
+    presetManager.prepare (apvts);
+
     // Ensure engine is in a safe state even before prepareToPlay is called
     engine.prepare (44100.0, 512, 2);
 }
@@ -111,5 +113,5 @@ void PluginProcessor::setStateInformation (const void* data, int sizeInBytes)
         remapWaveform (Parameters::paramOsc2Waveform);
     }
 
-    apvts.replaceState (tree);
+    presetManager.applyState (tree);
 }

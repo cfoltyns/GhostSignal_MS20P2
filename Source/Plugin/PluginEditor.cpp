@@ -16,6 +16,7 @@
  */
 
 #include "PluginEditor.h"
+#include "../UI/Components/MinimalStyle.h"
 #include <random>
 #include <cmath>
 
@@ -110,7 +111,90 @@ PluginEditor::PluginEditor (PluginProcessor& p)
 
     // ── Header ────────────────────────────────────────────────────────────────
     addAndMakeVisible (logoComponent);
-    logoComponent.setText ("ghost signal MS20P");
+    logoComponent.setText ("GHOST SIGNAL GS20");
+
+    auto configureHeaderButton = [this] (juce::TextButton& button)
+    {
+        addAndMakeVisible (button);
+        button.setLookAndFeel (&lnf);
+        button.setColour (juce::TextButton::buttonColourId, GhostSignalLookAndFeel::knobBody);
+        button.setColour (juce::TextButton::buttonOnColourId, GhostSignalLookAndFeel::accent);
+        button.setColour (juce::TextButton::textColourOffId, GhostSignalLookAndFeel::textPrimary);
+        button.setColour (juce::TextButton::textColourOnId, juce::Colours::white);
+    };
+    configureHeaderButton (savePatchButton);
+    configureHeaderButton (presetsButton);
+    savePatchButton.setButtonText ("SAVE PATCH");
+    presetsButton.setButtonText ("PRESETS");
+
+    // The patch readout is data, not chrome, so it uses the preset surfaces'
+    // monospace face. It stays in the header's muted secondary colour rather
+    // than the preset palette so the header keeps reading as one unit.
+    currentPresetLabel.setFont (MinimalStyle::getTrackedMonoFont (9.0f));
+    currentPresetLabel.setColour (juce::Label::textColourId, GhostSignalLookAndFeel::textSecondary);
+    currentPresetLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (currentPresetLabel);
+
+    // Transient toast for save / load / delete results. Monospace and unbordered
+    // to match the preset UI it reports on.
+    statusLabel.setFont (MinimalStyle::getMonoFont (9.5f));
+    statusLabel.setColour (juce::Label::textColourId, MinimalStyle::kTextColour);
+    statusLabel.setColour (juce::Label::outlineColourId, juce::Colours::transparentBlack);
+    statusLabel.setJustificationType (juce::Justification::centred);
+    statusLabel.setInterceptsMouseClicks (false, false);
+    statusLabel.setAlpha (0.0f);
+    addAndMakeVisible (statusLabel);
+
+    presetBrowser = std::make_unique<PresetBrowserPanel> (audioProcessor.getPresetManager());
+    presetBrowser->setVisible (false);
+    presetBrowser->setAlwaysOnTop (true);
+    presetBrowser->setInterceptsMouseClicks (true, true);
+    addAndMakeVisible (presetBrowser.get());
+
+    auto& manager = audioProcessor.getPresetManager();
+    presetBrowser->onLoadPreset = [this, &manager] (int index)
+    {
+        if (manager.loadPreset (index))
+            hidePresetBrowser();
+    };
+    presetBrowser->onSavePreset = [this]
+    {
+        const int currentIndex = audioProcessor.getPresetManager().getCurrentPresetIndex();
+        showSavePresetDialog (currentIndex >= audioProcessor.getPresetManager().getNumFactoryPresets()
+                                  ? currentIndex : -1);
+    };
+    presetBrowser->onRenamePreset = [this] (int index) { showRenamePresetDialog (index); };
+    presetBrowser->onDeletePreset = [this] (int index) { confirmDeletePreset (index); };
+    presetBrowser->onToggleFavorite = [this] (int index)
+    {
+        auto& presetManager = audioProcessor.getPresetManager();
+        if (index < 0 || index >= presetManager.getNumPresets())
+            return;
+
+        presetManager.setFavorite (index, ! presetManager.isFavorite (index));
+        refreshPresetBrowser();
+    };
+    presetBrowser->onClose = [this] { hidePresetBrowser(); };
+
+    manager.setChangeListener ([this]
+    {
+        updateCurrentPresetLabel();
+        if (presetBrowser != nullptr && presetBrowser->isVisible())
+            presetBrowser->refresh();
+    });
+    manager.setStatusListener ([this] (const juce::String& message, bool success)
+    {
+        showPresetStatus (message, success);
+    });
+    updateCurrentPresetLabel();
+
+    savePatchButton.onClick = [this]
+    {
+        const int currentIndex = audioProcessor.getPresetManager().getCurrentPresetIndex();
+        showSavePresetDialog (currentIndex >= audioProcessor.getPresetManager().getNumFactoryPresets()
+                                  ? currentIndex : -1);
+    };
+    presetsButton.onClick = [this] { showPresetBrowser(); };
 
     // ── OSC1 ─────────────────────────────────────────────────────────────────
     addAndMakeVisible (osc1Panel);
@@ -628,7 +712,21 @@ void PluginEditor::resized()
     // Small knob for secondary controls
     const int smallKnobD = (int) (knobD * 0.75f);
 
-    layoutHeaderBar (margin, headerH, largeKnobD);
+    layoutHeaderBar (margin, headerH);
+
+    if (presetBrowser != nullptr)
+    {
+        // Compact, tall panel: it reads as a command palette rather than a
+        // window. The minimum width keeps the action row (six bare labels plus
+        // their gaps and padding) on a single line.
+        const int browserW = juce::jmin (460, w - 2 * margin);
+        const int browserH = juce::jmin (440, h - (margin + headerH + margin) - margin);
+        presetBrowser->setBounds (margin, margin + headerH + margin,
+                                  juce::jmax (400, browserW), juce::jmax (300, browserH));
+    }
+
+    const int statusW = juce::jmin (360, w - 2 * margin);
+    statusLabel.setBounds (w - margin - statusW, h - margin - 20, statusW, 20);
 
     const int contentTop = margin + headerH + margin;
     const int contentH   = h - contentTop - margin;
@@ -654,19 +752,30 @@ void PluginEditor::resized()
 // layoutHeaderBar()
 // ─────────────────────────────────────────────────────────────────────────────
 
-void PluginEditor::layoutHeaderBar (int margin, int headerH, int largeKnobD)
+void PluginEditor::layoutHeaderBar (int margin, int headerH)
 {
     const int w = getWidth();
-
-    // Randomize button: right-aligned in header
-    const int btnW = juce::jmax (80, (int) (w * 0.07f));
-    const int btnH = juce::jmax (22, (int) (headerH * 0.5f));
-    const int btnX = w - margin - btnW;
+    const int gap = juce::jmax (6, (int) (w * 0.006f));
+    const int btnH = juce::jmax (22, (int) (headerH * 0.52f));
     const int btnY = margin + (headerH - btnH) / 2;
-    randomizeButton.setBounds (btnX, btnY, btnW, btnH);
 
-    // Logo text: left-aligned, snug up against the randomize button
-    const int logoW = btnX - 2 * margin;
+    const int randomizeW = juce::jmax (80, (int) (w * 0.065f));
+    const int presetsW = juce::jmax (72, (int) (w * 0.055f));
+    const int saveW = juce::jmax (88, (int) (w * 0.070f));
+    const int currentW = juce::jlimit (140, 240, (int) (w * 0.16f));
+    const int controlsW = saveW + presetsW + randomizeW + currentW + gap * 3;
+    const int controlsX = w - margin - controlsW;
+
+    currentPresetLabel.setBounds (controlsX, margin, currentW, headerH);
+
+    int x = controlsX + currentW + gap;
+    savePatchButton.setBounds (x, btnY, saveW, btnH);
+    x += saveW + gap;
+    presetsButton.setBounds (x, btnY, presetsW, btnH);
+    x += presetsW + gap;
+    randomizeButton.setBounds (x, btnY, randomizeW, btnH);
+
+    const int logoW = juce::jmax (140, controlsX - margin - gap);
     logoComponent.setBounds (margin, margin, logoW, headerH);
 }
 
@@ -1747,6 +1856,13 @@ void PluginEditor::triggerRandomize()
 
 void PluginEditor::timerCallback()
 {
+    // Fade out preset status messages
+    if (statusTimerCountdown > 0)
+    {
+        --statusTimerCountdown;
+        statusLabel.setAlpha (juce::jmax (0.0f, static_cast<float> (statusTimerCountdown) / 90.0f));
+    }
+
     if (randomizeFlashCount > 0)
     {
         --randomizeFlashCount;
@@ -1961,5 +2077,433 @@ void PluginEditor::timerCallback()
     setKnobLed (tapeDelayAge,      Parameters::paramTapeDelayAge, 0.5f);
     setKnobLed (tapeDelaySat,      Parameters::paramTapeDelaySat, 0.3f);
     setKnobLed (tapeDelayWow,      Parameters::paramTapeDelayWow, 0.0f);
-    setKnobLed (tapeDelayFlutter,  Parameters::paramTapeDelayFlutter, 0.0f);
+        setKnobLed (tapeDelayFlutter,  Parameters::paramTapeDelayFlutter, 0.0f);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Preset management implementations
+// ─────────────────────────────────────────────────────────────────────────────
+
+namespace
+{
+        class PresetFieldsDialogContent final : public juce::Component,
+                                            private juce::Button::Listener
+    {
+    public:
+        PresetFieldsDialogContent (const juce::String& message,
+                                   const juce::String& initialName,
+                                   const juce::String& initialDescription,
+                                   const juce::StringArray& initialTags,
+                                   std::function<bool (const juce::String&,
+                                                      const juce::String&,
+                                                      const juce::StringArray&,
+                                                      juce::String&)> submitCallback)
+            : submit (std::move (submitCallback))
+        {
+            if (! message.isEmpty())
+            {
+                messageLabel.setText (message, juce::dontSendNotification);
+                messageLabel.setFont (MinimalStyle::getMonoFont (10.5f));
+                messageLabel.setColour (juce::Label::textColourId, MinimalStyle::kRowTextColour);
+                addAndMakeVisible (messageLabel);
+            }
+
+            nameLabel.setText ("name", juce::dontSendNotification);
+            nameLabel.setFont (MinimalStyle::getTrackedMonoFont (9.5f));
+            nameLabel.setColour (juce::Label::textColourId, MinimalStyle::kMutedColour);
+            addAndMakeVisible (nameLabel);
+
+            nameEditor.setText (initialName);
+            MinimalStyle::styleTextEditor (nameEditor, 13.0f);
+            addAndMakeVisible (nameEditor);
+
+            descLabel.setText ("description", juce::dontSendNotification);
+            descLabel.setFont (MinimalStyle::getTrackedMonoFont (9.5f));
+            descLabel.setColour (juce::Label::textColourId, MinimalStyle::kMutedColour);
+            addAndMakeVisible (descLabel);
+
+            descriptionEditor.setText (initialDescription);
+            descriptionEditor.setMultiLine (true);
+            MinimalStyle::styleTextEditor (descriptionEditor, 13.0f);
+            addAndMakeVisible (descriptionEditor);
+
+            tagsLabel.setText ("tags, comma separated", juce::dontSendNotification);
+            tagsLabel.setFont (MinimalStyle::getTrackedMonoFont (9.5f));
+            tagsLabel.setColour (juce::Label::textColourId, MinimalStyle::kMutedColour);
+            addAndMakeVisible (tagsLabel);
+
+            tagsEditor.setText (initialTags.joinIntoString (", "));
+            MinimalStyle::styleTextEditor (tagsEditor, 13.0f);
+            addAndMakeVisible (tagsEditor);
+
+            // No red: the palette has no accent, so a problem is signalled by
+            // brightness alone against the muted field labels.
+            errorLabel.setFont (MinimalStyle::getMonoFont (10.0f));
+            errorLabel.setColour (juce::Label::textColourId, MinimalStyle::kTextColour);
+            addAndMakeVisible (errorLabel);
+
+            // The dialog shares the browser's action-row treatment: bare
+            // lowercase text, no fills or borders.
+            buttonLookAndFeel = std::make_unique<MinimalStyle::FlatTextButtonLookAndFeel>();
+            configureButton (okButton, "ok");
+            configureButton (cancelButton, "cancel");
+
+            setSize (420, 296);
+            okButton.addListener (this);
+            cancelButton.addListener (this);
+
+            nameEditor.setSelectAllWhenFocused (true);
+        }
+
+        ~PresetFieldsDialogContent() override
+        {
+            okButton.removeListener (this);
+            cancelButton.removeListener (this);
+
+            // The buttons borrow buttonLookAndFeel, which is declared last and
+            // is therefore destroyed first. Detach it explicitly so no button is
+            // left holding a pointer to a dead look and feel.
+            for (auto* button : { &okButton, &cancelButton })
+                button->setLookAndFeel (nullptr);
+        }
+
+        void paint (juce::Graphics& g) override
+        {
+            // Same flat surface and hairlines as the browser: the fields read as
+            // bare input lines rather than as bezelled boxes.
+            MinimalStyle::paintSurface (g, getLocalBounds(),
+                                        { &nameEditor, &descriptionEditor, &tagsEditor });
+        }
+
+        void resized() override
+        {
+            auto area = getLocalBounds().reduced (MinimalStyle::kPad);
+            const int gap = MinimalStyle::kPad / 2;
+
+            if (messageLabel.getText().isNotEmpty())
+            {
+                messageLabel.setBounds (area.removeFromTop (32));
+                area.removeFromTop (gap);
+            }
+
+            nameLabel.setBounds (area.removeFromTop (14));
+            nameEditor.setBounds (area.removeFromTop (22));
+            area.removeFromTop (gap);
+
+            descLabel.setBounds (area.removeFromTop (14));
+            descriptionEditor.setBounds (area.removeFromTop (56));
+            area.removeFromTop (gap);
+
+            tagsLabel.setBounds (area.removeFromTop (14));
+            tagsEditor.setBounds (area.removeFromTop (22));
+
+            // Action row and the error line are taken from the bottom so any
+            // slack in the window height settles above them.
+            auto buttonArea = area.removeFromBottom (22);
+            area.removeFromBottom (gap);
+            errorLabel.setBounds (area.removeFromBottom (16));
+
+            cancelButton.setBounds (buttonArea.removeFromRight (72));
+            buttonArea.removeFromRight (MinimalStyle::kActionGap);
+            okButton.setBounds (buttonArea.removeFromRight (72));
+        }
+
+    private:
+        void buttonClicked (juce::Button* button) override
+        {
+            if (button == &okButton)
+                submitFields();
+            else if (button == &cancelButton)
+                closeDialog();
+        }
+
+        void submitFields()
+        {
+            const auto name = nameEditor.getText().trim();
+            if (name.isEmpty())
+            {
+                errorLabel.setText ("Please enter a preset name.", juce::dontSendNotification);
+                nameEditor.grabKeyboardFocus();
+                return;
+            }
+
+            juce::StringArray tags;
+            tags.addTokens (tagsEditor.getText(), ",", "");
+            tags.trim();
+            tags.removeEmptyStrings();
+
+            juce::String error;
+            if (submit != nullptr
+                && submit (name, descriptionEditor.getText().trim(), tags, error))
+            {
+                closeDialog();
+                return;
+            }
+
+            errorLabel.setText (error.isNotEmpty() ? error
+                                                   : juce::String ("Could not complete the request."),
+                                juce::dontSendNotification);
+        }
+
+        void closeDialog()
+        {
+            if (auto* dialog = findParentComponentOfClass<juce::DialogWindow>())
+                dialog->exitModalState (0);
+        }
+
+        void configureButton (juce::TextButton& button, const juce::String& text)
+        {
+            button.setButtonText (text);
+            button.setLookAndFeel (buttonLookAndFeel.get());
+            addAndMakeVisible (button);
+        }
+
+        juce::Label messageLabel { juce::String(), juce::String() };
+        juce::Label nameLabel { juce::String(), juce::String() };
+        juce::Label descLabel { juce::String(), juce::String() };
+        juce::Label tagsLabel { juce::String(), juce::String() };
+        juce::Label errorLabel { juce::String(), juce::String() };
+        juce::TextEditor nameEditor;
+        juce::TextEditor descriptionEditor;
+        juce::TextEditor tagsEditor;
+        juce::TextButton okButton { "OK" };
+        juce::TextButton cancelButton { "CANCEL" };
+        std::function<bool (const juce::String&,
+                            const juce::String&,
+                            const juce::StringArray&,
+                            juce::String&)> submit;
+
+        // Declared last so it is destroyed before the buttons that borrow it:
+        // Component members are destroyed in reverse declaration order, so the
+        // look and feel outlives every button holding a pointer to it.
+        std::unique_ptr<juce::LookAndFeel> buttonLookAndFeel;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PresetFieldsDialogContent)
+    };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Preset management
+// ─────────────────────────────────────────────────────────────────────────────
+
+void PluginEditor::showPresetBrowser()
+{
+    if (presetBrowser == nullptr)
+        return;
+
+    refreshPresetBrowser();
+    presetBrowser->setVisible (true);
+    presetBrowser->toFront (true);
+    presetBrowser->grabKeyboardFocus();
+}
+
+void PluginEditor::hidePresetBrowser()
+{
+    if (presetBrowser != nullptr)
+        presetBrowser->setVisible (false);
+}
+
+void PluginEditor::refreshPresetBrowser()
+{
+    if (presetBrowser == nullptr)
+        return;
+
+    presetBrowser->refresh();
+
+    const int index = audioProcessor.getPresetManager().getCurrentPresetIndex();
+    if (index >= 0)
+        presetBrowser->setSelectedIndex (index);
+}
+
+void PluginEditor::updateCurrentPresetLabel()
+{
+    auto& manager = audioProcessor.getPresetManager();
+    const int index = manager.getCurrentPresetIndex();
+
+    juce::String text;
+    if (index >= 0 && index < manager.getNumPresets())
+    {
+        const auto& info = manager.getPresetInfo (index);
+        text = (info.factory ? "FACTORY: " : "USER: ") + info.name;
+    }
+    else
+    {
+        text = "PATCH: " + manager.getCurrentPresetName();
+    }
+
+    currentPresetLabel.setText (text.toUpperCase(), juce::dontSendNotification);
+}
+
+void PluginEditor::showPresetFieldsDialog (const juce::String& title,
+                                           const juce::String& message,
+                                           const juce::String& initialName,
+                                           const juce::String& initialDescription,
+                                           const juce::StringArray& initialTags,
+                                           std::function<bool (const juce::String&,
+                                                               const juce::String&,
+                                                               const juce::StringArray&,
+                                                               juce::String&)> submit)
+{
+    if (presetDialogOpen)
+        return;
+
+    presetDialogOpen = true;
+
+    juce::Component::SafePointer<PluginEditor> safeEditor (this);
+
+    auto* content = new PresetFieldsDialogContent (message,
+                                                   initialName,
+                                                   initialDescription,
+                                                   initialTags,
+                                                   std::move (submit));
+
+    juce::DialogWindow::LaunchOptions options;
+    options.dialogTitle = title;
+    options.dialogBackgroundColour = juce::Colour (0xff11151c);
+    options.content.setOwned (content);
+    options.componentToCentreAround = this;
+    options.escapeKeyTriggersCloseButton = true;
+    options.useNativeTitleBar = false;
+    options.resizable = false;
+
+    auto* dialog = options.create();
+    if (dialog == nullptr)
+    {
+        presetDialogOpen = false;
+        return;
+    }
+
+    dialog->enterModalState (true,
+                             juce::ModalCallbackFunction::create (
+                                 [safeEditor] (int)
+                                 {
+                                     if (safeEditor != nullptr)
+                                         safeEditor->presetDialogOpen = false;
+                                 }),
+                             true);
+}
+
+void PluginEditor::showSavePresetDialog (int overwriteIndex)
+{
+    auto& manager = audioProcessor.getPresetManager();
+    if (overwriteIndex < 0 || overwriteIndex >= manager.getNumPresets()
+        || manager.isFactoryPreset (overwriteIndex))
+    {
+        overwriteIndex = -1;
+    }
+
+    const juce::String initialName = overwriteIndex >= 0
+                                         ? manager.getPresetInfo (overwriteIndex).name
+                                         : juce::String ("New Patch");
+    const juce::String message = overwriteIndex >= 0
+                                     ? "Update the selected user patch with the current settings."
+                                     : "Store the current settings as a new user patch.";
+
+    const int target = overwriteIndex;
+    showPresetFieldsDialog ("Save Preset",
+                            message,
+                            initialName,
+                            juce::String(),
+                            juce::StringArray(),
+                            [this, target] (const juce::String& name,
+                                            const juce::String& description,
+                                            const juce::StringArray& tags,
+                                            juce::String& error)
+                            {
+                                auto& presetManager = audioProcessor.getPresetManager();
+                                if (presetManager.savePreset (name, description, tags, target))
+                                {
+                                    refreshPresetBrowser();
+                                    updateCurrentPresetLabel();
+                                    return true;
+                                }
+
+                                error = presetManager.getLastError();
+                                return false;
+                            });
+}
+
+void PluginEditor::showRenamePresetDialog (int index)
+{
+    auto& manager = audioProcessor.getPresetManager();
+    if (index < 0 || index >= manager.getNumPresets() || manager.isFactoryPreset (index))
+        return;
+
+    const auto info = manager.getPresetInfo (index);
+
+    showPresetFieldsDialog ("Rename Preset",
+                            "Rename this user patch.",
+                            info.name,
+                            info.description,
+                            info.tags,
+                            [this, index] (const juce::String& name,
+                                           const juce::String& description,
+                                           const juce::StringArray& tags,
+                                           juce::String& error)
+                            {
+                                auto& presetManager = audioProcessor.getPresetManager();
+                                if (presetManager.renamePreset (index, name, description, tags))
+                                {
+                                    refreshPresetBrowser();
+                                    updateCurrentPresetLabel();
+                                    return true;
+                                }
+
+                                error = presetManager.getLastError();
+                                return false;
+                            });
+}
+
+void PluginEditor::confirmDeletePreset (int index)
+{
+    auto& manager = audioProcessor.getPresetManager();
+    if (index < 0 || index >= manager.getNumPresets() || manager.isFactoryPreset (index))
+        return;
+
+    const auto name = manager.getPresetInfo (index).name;
+    juce::Component::SafePointer<PluginEditor> safeEditor (this);
+
+    juce::AlertWindow::showAsync (juce::MessageBoxOptions()
+                                      .withIconType (juce::MessageBoxIconType::WarningIcon)
+                                      .withTitle ("Delete Preset")
+                                      .withMessage ("Delete the user patch \"" + name
+                                                        + "\"?\n\nThis cannot be undone.")
+                                      .withButton ("Delete")
+                                      .withButton ("Cancel"),
+                                  [safeEditor, index] (int result)
+                                  {
+                                      if (safeEditor == nullptr || result != 1)
+                                          return;
+
+                                      auto& presetManager = safeEditor->audioProcessor.getPresetManager();
+                                      if (presetManager.deletePreset (index))
+                                      {
+                                          safeEditor->refreshPresetBrowser();
+                                          safeEditor->updateCurrentPresetLabel();
+                                      }
+                                  });
+}
+
+void PluginEditor::showPresetStatus (const juce::String& message, bool success)
+{
+    // The preset palette has no accent colour, so a failure is signalled purely
+    // by dimming rather than by turning red.
+    statusSuccess = success;
+    statusLabel.setColour (juce::Label::textColourId,
+                           success ? MinimalStyle::kTextColour : MinimalStyle::kMutedColour);
+    statusLabel.setText (message.toLowerCase(), juce::dontSendNotification);
+    statusLabel.setAlpha (1.0f);
+    statusLabel.toFront (false);
+    statusTimerCountdown = 120;
+}
+
+void PluginEditor::mouseDown (const juce::MouseEvent& event)
+{
+    // A click on the editor background dismisses the floating preset browser.
+    if (presetBrowser != nullptr && presetBrowser->isVisible()
+        && ! presetBrowser->getBounds().contains (event.getPosition()))
+    {
+        hidePresetBrowser();
+    }
+}
+

@@ -66,6 +66,7 @@ set(SOURCES
     Source/UI/Components/LfoDisplay.cpp
     Source/UI/Components/OscilloscopeDisplay.cpp
     Source/UI/Components/PatchPanel.cpp
+    Source/UI/Components/PresetBrowser.cpp
     Source/UI/Components/LogoComponent.cpp
     Source/UI/Components/Analyzer.cpp
     Source/Synth/Oscillator.cpp

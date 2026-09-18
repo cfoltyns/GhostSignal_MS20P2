@@ -27,7 +27,7 @@ public:
     void resized() override;
 
 private:
-    juce::String displayName { "GHOST SIGNAL  MS20P" };
+    juce::String displayName { "GHOST SIGNAL GS20" };
     juce::Colour textColour { juce::Colour (0xFFE0E0E0) };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LogoComponent)

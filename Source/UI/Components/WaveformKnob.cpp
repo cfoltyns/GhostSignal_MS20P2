@@ -23,7 +23,7 @@ WaveformKnob::WaveformKnob (const juce::String& labelText)
     label.setJustificationType (juce::Justification::centred);
     label.setColour (juce::Label::textColourId,       GhostSignalLookAndFeel::textSecondary);
     label.setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
-    label.setFont (GhostSignalLookAndFeel::getKnobLabelFont (60));
+    label.setFont (GhostSignalLookAndFeel::getMonospaceFont (10.0f, false));
     addAndMakeVisible (label);
 
     // Set range to 0-1 for normalized choice parameter values
@@ -215,12 +215,11 @@ void WaveformKnob::resized()
     // Centre the text overlay over the knob body
     const int centerH = juce::jmax (12, (int) (knobSize * 0.24f));
     centerLabel.setBounds (knobX + 2, knobY + (knobSize - centerH) / 2, knobSize - 4, centerH);
-    centerLabel.setFont (juce::Font (juce::FontOptions (
-        juce::jlimit (9.0f, 16.0f, (float) knobSize * 0.18f), juce::Font::bold)));
+    centerLabel.setFont (GhostSignalLookAndFeel::getMonospaceFont (9.0f, true));
 
     const int labelY = knobAreaH + gap;
     label.setBounds (0, labelY, totalW, labelH);
-    label.setFont (GhostSignalLookAndFeel::getKnobLabelFont (knobSize));
+    label.setFont (GhostSignalLookAndFeel::getMonospaceFont (10.0f, false));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

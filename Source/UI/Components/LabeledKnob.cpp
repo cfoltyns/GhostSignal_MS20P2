@@ -31,7 +31,7 @@ LabeledKnob::LabeledKnob (const juce::String& labelText)
     label.setJustificationType (juce::Justification::centred);
     label.setColour (juce::Label::textColourId, GhostSignalLookAndFeel::textSecondary);
     label.setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
-    label.setFont (GhostSignalLookAndFeel::getKnobLabelFont (60));
+    label.setFont (GhostSignalLookAndFeel::getMonospaceFont (10.0f, false));
     addAndMakeVisible (label);
 
     slider.addListener (this);
@@ -184,7 +184,7 @@ void LabeledKnob::paint (juce::Graphics& g)
                                     labelW + 2.0f, labelH + 2.0f, 3.0f);
 
             g.setColour (GhostSignalLookAndFeel::textPrimary);
-            g.setFont (juce::Font (juce::FontOptions ((float) labelFont, juce::Font::bold)));
+            g.setFont (GhostSignalLookAndFeel::getMonospaceFont (labelFont, true));
             g.drawText (textValues[i],
                         juce::Rectangle<float> (textX - labelW * 0.5f, textY - labelH * 0.5f, labelW, labelH),
                         juce::Justification::centred, false);
@@ -240,12 +240,11 @@ void LabeledKnob::resized()
     // (set via setCenterText) sit in the middle of the knob.
     const int centerH = juce::jmax (12, (int) (knobSize * 0.24f));
     centerLabel.setBounds (knobX + 2, knobY + (knobSize - centerH) / 2, knobSize - 4, centerH);
-    centerLabel.setFont (juce::Font (juce::FontOptions (
-        juce::jlimit (8.0f, 12.0f, (float) knobSize * 0.15f), juce::Font::bold)));
+    centerLabel.setFont (GhostSignalLookAndFeel::getMonospaceFont (9.0f, true));
 
     const int labelY = knobAreaH + gap;
     label.setBounds (0, labelY, totalW, labelH);
-    label.setFont (GhostSignalLookAndFeel::getKnobLabelFont (knobSize));
+    label.setFont (GhostSignalLookAndFeel::getMonospaceFont (10.0f, false));
 }
 
 void LabeledKnob::sliderValueChanged (juce::Slider* s)
